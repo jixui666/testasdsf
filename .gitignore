@@ -1,0 +1,14 @@
+# build artifacts
+build/
+dist/
+seeds/
+*.ipa
+
+# python POC default outputs (written to CWD when run without an argument)
+joliet_path_oob.iso
+deep_nest.usda
+ktx2_bad_dims.ktx2
+stack_bomb.cff
+
+# macOS
+.DS_Store
