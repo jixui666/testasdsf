@@ -177,15 +177,33 @@ and the journal entry was never disarmed.
 | `cg.shading` | **SIGSEGV at `0x3ff000000000001c`** (`cg_shading_type5_draw`) | The fault address is the PDF-chosen double `0x3FF0000000000000` plus `0x1c` — the overflow is value-controlled, exactly as predicted |
 | `cg.shading.sweep` | **SIGBUS in `RenderTriangleMesh`** at R=8 (R=4 survived) | The overrun walks off the stack into a protected page; the fatal rung is far below the 136 the single shot uses |
 | `arc.iso.stress` | **died** at round 32; no frame in libarchive | The crash surfaced on the main thread inside CoreAnimation (`objc_msgSend` on a null) — heap corruption from the 2-byte overrun showing up later, not at the site |
-| `kern.decmpfs` | **died**, and produced **no crash report at all** | Not a signal death: the three sibling crashes each wrote an `.ips`, this one wrote none. Most consistent with SIGKILL/jetsam — i.e. the malformed decmpfs read asks for an allocation far larger than the file |
+| `kern.decmpfs` | **silent hang**, no crash report | Not a signal death: the three sibling crashes each wrote an `.ips`, this one wrote none, and jetsam always logs a `JetsamEvent`. Confirmed by the operator as the app freezing and being force-quit — so the malformed decmpfs read blocks rather than leaks |
 | `sbx.toctou` | **negative** — `bypassed=0 nosandbox=10 blocked=1` | 10 of 11 targets are readable *directly*, so there is no sandbox barrier for the link swap to cross |
-| `cal.unzip` | `_UnzipArchiveWithLimits` / `_CalUnzipEntryDestinationPath` / `_CalUnzipParentIsContained` all **absent** | Unfixed on 27.0.1 as expected. The `../` test in that run was confounded — it extracted with SECURE_NODOTDOT set, so 0 entries says nothing about libarchive. Now extracts twice and reports both |
-| `cal.format` | 18 of 18 candidate binaries **not on disk** | System frameworks live only in the dyld shared cache on 27.0.1; the disk route cannot answer the format question. The module now also dlopens and walks the mapped `__LINKEDIT` |
+| `cal.unzip` | `_UnzipArchiveWithLimits` / `_CalUnzipEntryDestinationPath` / `_CalUnzipParentIsContained` all **absent**; `_UnzipArchive` is neither a selector nor an exported C symbol | Unfixed on 27.0.1. The same `../` archive extracted twice: **0 entries** with SECURE_SYMLINKS\|SECURE_NODOTDOT, **1 entry with a real escape** without them — libarchive does not contain on its own |
+| `cal.format` | format registration **not measurable in-process** — see below | 18/18 binaries absent from disk; every route into the image is closed |
 | `kern.ipc` | survived, `ops=512` | No UAF receipt |
 | `iio.tiff.trunc`, `iio.jpeg.comment`, `iio.tiff.planar`, `kext.gpt`, `sb.stash`, `tool.*` | completed | As recorded by the harness |
 
-Open on device: the `cal.format` memory route (first run of it), and a `JetsamEvent-*.ips` at
-22:48:32 to confirm the decmpfs death.
+### The 112619 format question — closed as not measurable in-process
+
+Four routes were tried on 27.0.1, and each one fails for a reason worth writing down:
+
+| Route | Result |
+|---|---|
+| Read the framework binary from disk | 18/18 candidates absent — system frameworks are dyld-cache-only |
+| `LC_SYMTAB` on the mapped image | the cache strips the nlist entries: `nsyms = 0` for all 17 images that dlopen |
+| Raw name scan over the mapped `__LINKEDIT` | **invalid, and it produced a false positive**: an image's `__LINKEDIT` range covers the cache-wide linkedit region, which also holds libarchive's own symbol strings. Twelve unrelated frameworks (CalendarWidget, SiriCalendarUI, DataAccess …) reported the identical six `archive_*` names |
+| Per-image `LC_DYLD_CHAINED_FIXUPS` import table | the command is absent from every cache image — imports were resolved when the cache was built |
+
+Calling it is out too: `CalAttachmentUtils` resolves and is declared by
+CalendarFoundation, but `_UnzipArchive` is neither a selector nor an exported C symbol (both
+`_` and `__` forms checked with dlsym), so it cannot be reached at run time.
+
+What *is* established about the surface: libarchive itself does not contain `../` (0 entries
+with `SECURE_SYMLINKS|SECURE_NODOTDOT`, 1 entry and a real out-of-destination file without
+them), and 27.0.1 carries none of the three containment helpers 27.2 adds. Whether the
+delivery path registers `format_all` or only `format_zip` therefore has to be settled
+behaviourally — hand Calendar an ISO image as an attachment — not from inside the app.
 
 ## Verification status
 
