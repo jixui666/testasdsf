@@ -205,8 +205,8 @@ extension Catalog {
                     lines.append(tl("错误: ") + "\(error.localizedDescription)")
                 }
                 ctx.disarm("arc.rr", "done")
-                lines.append(tl("RockRidge CL/PL 环：27.0 与 27.2 都未修（上游已修，Apple 未取）"))
-                let _outHeadline = tl("RockRidge 路径已遍历")
+                lines.append(tl("注意：本模块尚未构造 CL/PL 环 —— 它遍历的是 Joliet 种子，不能据此判断 RockRidge 是否可环。本地用 libarchive 3.5.2 做对照实验时，CL 条目并未被跟随（读的是条目自身 extent），环未被复现。"))
+                let _outHeadline = tl("RockRidge 环未实现（仅遍历 Joliet 种子）")
                 let _outDetail = lines.joined(separator: "\n")
                 return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })

@@ -205,6 +205,26 @@ them), and 27.0.1 carries none of the three containment helpers 27.2 adds. Wheth
 delivery path registers `format_all` or only `format_zip` therefore has to be settled
 behaviourally — hand Calendar an ISO image as an attachment — not from inside the app.
 
+### `arc.rr` — the RockRidge claim has no implementation behind it
+
+`arc.rr/arc.rr.py` is a second copy of the Joliet builder, and the `arc.rr` module parses
+`joliet_path_oob.iso` and reports how long that took — neither constructs a RockRidge CL/PL
+cycle. So "unfixed sibling" was never tested by this repo. The module now says so instead of
+reporting a traversal as if it were a verdict.
+
+A real SUSP/RR generator now exists (`scripts/gen_rr_cycle.py`) and produces an image that
+libarchive accepts — validated against bsdtar 3.5.2 locally. Two things that cost time and are
+worth remembering when hand-rolling ISO9660:
+
+- the root directory record inside the PVD is exactly 34 bytes and carries **no** system use
+  area; appending SUSP there overruns into the volume-set identifier at offset 190;
+- libarchive's ISO9660 bid reads `32 KiB + 8 sectors` ahead, so an image smaller than 49,152
+  bytes is rejected as an empty archive no matter how valid it is.
+
+With a well-formed image, CL is **not followed**: an entry whose CL points at another extent
+still has its own extent read (`A/F1` is listed, not `A/F2`), so the cycle was not reproduced
+and the claim stays unverified.
+
 ## Verification status
 
 Full 52-module regression (simulator build): **47 done + 4 armed**.
