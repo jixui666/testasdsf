@@ -103,9 +103,10 @@ extension Catalog {
 
                 var artifacts: [URL] = [fixtureURL]
                 if let o = output { artifacts.append(o) }
-                return ModuleOutcome(headline: output == nil ? tl("手术未完成") : tl("IPA 手术链路可用"),
-                                     detail: lines.joined(separator: "\n"),
-                                     artifacts: artifacts)
+                let _outHeadline = output == nil ? tl("手术未完成") : tl("IPA 手术链路可用")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outArtifacts = artifacts
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
 
     private static let m_tool_zip: ExploitModule = ExploitModule(
@@ -152,13 +153,13 @@ extension Catalog {
                     }
                 }
                 ctx.disarm("tool.zip", "matched=\(matched)")
-                return ModuleOutcome(
-                    headline: mismatched == 0 && matched == expected.count
+                let _outHeadline = mismatched == 0 && matched == expected.count
                         ? "\(matched)" + tl("/") + "\(expected.count)" + tl(" 个文件逐字节一致")
-                        : "\(matched)" + tl(" 一致 / ") + "\(mismatched)" + tl(" 不一致"),
-                    detail: tl("归档 ") + "\(archive.count)" + tl(" B · 解包 ") + "\(result.count)" + tl(" 项 · ") + "\(result.status)",
-                    evidence: [tl("64 × 4 KB 随机内容"), tl("自己写 ZIP → libarchive 读回")],
-                    artifacts: [url])
+                        : "\(matched)" + tl(" 一致 / ") + "\(mismatched)" + tl(" 不一致")
+                let _outDetail = tl("归档 ") + "\(archive.count)" + tl(" B · 解包 ") + "\(result.count)" + tl(" 项 · ") + "\(result.status)"
+                let _outEvidence = [tl("64 × 4 KB 随机内容"), tl("自己写 ZIP → libarchive 读回")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_tool_macho: ExploitModule = ExploitModule(
@@ -201,8 +202,9 @@ extension Catalog {
                     }
                 }
                 ctx.disarm("tool.macho", "parsed=\(parsed)")
-                return ModuleOutcome(headline: tl("解析 ") + "\(parsed)" + tl(" 个二进制"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("解析 ") + "\(parsed)" + tl(" 个二进制")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_tool_hex: ExploitModule = ExploitModule(
@@ -244,8 +246,9 @@ extension Catalog {
                 ]
                 let ok = hexHits == planted && rawHits == planted && after.count == planted.count && leftover.isEmpty
                 if !ok { lines.append(tl("有断言不成立")) }
-                return ModuleOutcome(headline: ok ? tl("查找替换全部断言通过") : tl("有断言失败"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = ok ? tl("查找替换全部断言通过") : tl("有断言失败")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_tool_container: ExploitModule = ExploitModule(
@@ -317,10 +320,11 @@ extension Catalog {
                 let report = lines.joined(separator: "\n")
                 let url = ctx.write("container_health.txt", Data(report.utf8))
                 ctx.disarm("tool.container", "ok=\(okCount)")
-                return ModuleOutcome(headline: "\(okCount)" + tl("/") + "\(Container.standards.count)" + tl(" 目录读写正常"),
-                                     detail: report,
-                                     evidence: [tl("探针 = 建文件 → 写 → fsync → 读回 → 比对 → 删除")],
-                                     artifacts: [url])
+                let _outHeadline = "\(okCount)" + tl("/") + "\(Container.standards.count)" + tl(" 目录读写正常")
+                let _outDetail = report
+                let _outEvidence = [tl("探针 = 建文件 → 写 → fsync → 读回 → 比对 → 删除")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_tool_backup: ExploitModule = ExploitModule(
@@ -386,14 +390,14 @@ extension Catalog {
                 _ = evilURL
 
                 ctx.disarm("tool.backup", "matched=\(matched)")
-                return ModuleOutcome(
-                    headline: mismatched == 0 ? tl("备份往返 ") + "\(matched)" + tl("/") + "\(expected.count)" + tl(" 一致") : "\(matched)" + tl(" 一致 / ") + "\(mismatched)" + tl(" 不一致"),
-                    detail: [
+                let _outHeadline = mismatched == 0 ? tl("备份往返 ") + "\(matched)" + tl("/") + "\(expected.count)" + tl(" 一致") : "\(matched)" + tl(" 一致 / ") + "\(mismatched)" + tl(" 不一致")
+                let _outDetail = [
                         tl("归档 ") + "\(archive.count)" + tl(" B · 解包 ") + "\(result.count)" + tl(" 项"),
                         tl("逐字节比对: ") + "\(matched)" + tl("/") + "\(expected.count)",
                         tl("路径穿越遏制: ") + "\(escaped ? tl("失败 —— ../ 逃出了目标目录") : tl("有效（../ 未逃出）"))",
-                    ].joined(separator: "\n"),
-                    artifacts: [archiveURL])
+                    ].joined(separator: "\n")
+                let _outArtifacts = [archiveURL]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
 
     private static let m_tool_paths: ExploitModule = ExploitModule(
@@ -420,8 +424,10 @@ extension Catalog {
                 let report = lines.joined(separator: "\n")
                 let url = ctx.write("path_matrix.txt", Data(report.utf8))
                 ctx.disarm("tool.paths", "r=\(readable) w=\(writable)")
-                return ModuleOutcome(headline: "\(readable)" + tl(" 个可读 · ") + "\(writable)" + tl(" 个可写"),
-                                     detail: report, artifacts: [url])
+                let _outHeadline = "\(readable)" + tl(" 个可读 · ") + "\(writable)" + tl(" 个可写")
+                let _outDetail = report
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
     static let tooling: [ExploitModule] = [m_tool_ipa, m_tool_zip, m_tool_macho, m_tool_hex, m_tool_container, m_tool_backup, m_tool_paths]
 }

@@ -226,14 +226,15 @@ extension Catalog {
 
                 let url = ctx.write("cal_format_report.txt", Data(report.utf8))
                 ctx.disarm("cal.format", "scanned=\(present)")
-                return ModuleOutcome(headline: tl("格式面已测绘，命中二进制 ") + "\(present)",
-                                     detail: lines.joined(separator: "\n"),
-                                     evidence: [
+                let _outHeadline = tl("格式面已测绘，命中二进制 ") + "\(present)"
+                let _outDetail = lines.joined(separator: "\n")
+                let _outEvidence = [
                                         tl("两条独立通道：LC_SYMTAB 未定义符号 + 原始名字扫描"),
                                         tl("候选集含 /System/Library/PrivateFrameworks 下全部 Calendar 框架"),
                                         tl("引用存在 ≠ 嗅探启用，结论分级记录"),
-                                     ],
-                                     artifacts: [url])
+                                     ]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
     static let formatProbes: [ExploitModule] = [m_cal_format]
 }

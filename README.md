@@ -144,12 +144,13 @@ Two things the workflow exists to pin down:
 - **Toolchain.** The runner image carries Xcode 16.0 through 26.3. The default is 16.4 and a
   plain `/Applications/Xcode*.app` glob picks 16.0 — the least capable one. The workflow
   enumerates every Xcode that has an `iPhoneOS` platform and selects the highest iOS SDK.
-- **Declaration shape.** Every `ExploitModule` lives in its own `private static let`. A single
-  array literal of module closures is one expression, and the Swift solver rejects it with
-  *"unable to type-check this expression in reasonable time"* — on 6.0 and 6.2 alike.
-  `scripts/hoist_modules.py` performs that rewrite and refuses to run if an element boundary is
-  ambiguous; `static let <group>: [ExploitModule] = [m_…, m_…]` is all that is left in the
-  catalog files.
+- **Declaration shape.** Every `ExploitModule` lives in its own `private static let`, and every
+  `return ModuleOutcome(…)` passes locals rather than inline expressions. Both are one
+  expression per declaration/argument, because a single expression that carries several
+  `String +` chains (plus ternaries) is rejected by the solver with *"unable to type-check this
+  expression in reasonable time"* — on 6.0 and 6.2 alike. `scripts/hoist_modules.py` and
+  `scripts/split_outcomes.py` perform those rewrites; both refuse to run if a boundary is
+  ambiguous, and neither changes semantics.
 
 Evidence collection on device: **Mod → Backup** packs the whole data container — including
 `Library/Application Support/Cinder27/work`, where every module writes its artifacts, and the

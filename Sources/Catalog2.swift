@@ -61,13 +61,15 @@ extension Catalog {
                         run = 0
                     }
                 }
-                return ModuleOutcome(
-                    headline: suspicious > 0 ? tl("输出文件里出现 ") + "\(suspicious)" + tl(" 段标记填充字节") : tl("输出干净"),
-                    detail: tl("源 ") + "\(jpeg.count)" + tl(" B → 产出 ") + "\(produced.count)" + tl(" B\n") +
-                            (samples.isEmpty ? tl("未在产出里找到源标记的填充区") : samples.joined(separator: "\n")) +
-                            tl("\n若 27.0 未钳制，这些 0x41 来自越界读到的堆内容；27.2 会直接丢弃越界标记。"),
-                    evidence: [tl("源 JPEG ") + "\(jpeg.count)" + tl(" B"), tl("产出 ") + "\(produced.count)" + tl(" B"), tl("重编码成功=") + "\(ok)"],
-                    artifacts: [src, outURL])
+                let _outHeadline = suspicious > 0 ? tl("输出文件里出现 ") + "\(suspicious)" + tl(" 段标记填充字节") : tl("输出干净")
+                let _outSizes = tl("源 ") + "\(jpeg.count)" + tl(" B → 产出 ") + "\(produced.count)" + tl(" B\n")
+                let _outSamples = samples.isEmpty
+                    ? tl("未在产出里找到源标记的填充区")
+                    : samples.joined(separator: "\n")
+                let _outDetail = _outSizes + _outSamples + tl("\n若 27.0 未钳制，这些 0x41 来自越界读到的堆内容；27.2 会直接丢弃越界标记。")
+                let _outEvidence = [tl("源 JPEG ") + "\(jpeg.count)" + tl(" B"), tl("产出 ") + "\(produced.count)" + tl(" B"), tl("重编码成功=") + "\(ok)"]
+                let _outArtifacts = [src, outURL]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_tiff_direntry: ExploitModule = ExploitModule(
@@ -94,8 +96,10 @@ extension Catalog {
                 ctx.disarm("iio.tiff.direntry", "done")
                 detail.append(tl("种子 ") + "\(tiff.count)" + tl(" B · count=0x20000000 · type=SBYTE"))
                 detail.append(tl("27.0 期望：分配截断 → 转换循环越界写。27.2 期望：_TIFFCheckMalloc_type 拒绝。"))
-                return ModuleOutcome(headline: tl("分配路径已触发"), detail: detail.joined(separator: "\n"),
-                                     artifacts: [url])
+                let _outHeadline = tl("分配路径已触发")
+                let _outDetail = detail.joined(separator: "\n")
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
 
     private static let m_iio_pdf_raster: ExploitModule = ExploitModule(
@@ -121,8 +125,10 @@ extension Catalog {
                 }
                 ctx.disarm("iio.pdf.raster", "done")
                 lines.append(tl("页面 4000×4000 · 需要 64 MB 缓冲"))
-                return ModuleOutcome(headline: tl("PDF 解码路径已触发"),
-                                     detail: lines.joined(separator: "\n"), artifacts: [url])
+                let _outHeadline = tl("PDF 解码路径已触发")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
 
     private static let m_iio_pvr: ExploitModule = ExploitModule(
@@ -141,9 +147,10 @@ extension Catalog {
                 ctx.arm("iio.pvr", "decode")
                 let r = try Runners.decodeImage(pvr)
                 ctx.disarm("iio.pvr", "decoded=\(r.decoded)")
-                return ModuleOutcome(headline: tl("解码存活（已解码=") + "\(r.decoded)" + tl("）"),
-                                     detail: tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)" + tl(" · 帧数 ") + "\(r.frameCount)",
-                                     artifacts: [url])
+                let _outHeadline = tl("解码存活（已解码=") + "\(r.decoded)" + tl("）")
+                let _outDetail = tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)" + tl(" · 帧数 ") + "\(r.frameCount)"
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
     static let imageIO2: [ExploitModule] = [m_iio_appx, m_iio_tiff_direntry, m_iio_pdf_raster, m_iio_pvr]
 
@@ -163,10 +170,11 @@ extension Catalog {
                 ctx.arm("arc.cab", "list")
                 let (entries, status) = try Runners.Archive.list(cab)
                 ctx.disarm("arc.cab", "status=\(status)")
-                return ModuleOutcome(headline: tl("libarchive 返回 ") + "\(status)",
-                                     detail: entries.isEmpty ? tl("无条目（解码器在块层就停了）") : entries.joined(separator: "\n"),
-                                     evidence: ["CAB \(cab.count) B", tl("压缩类型 3 = LZX")],
-                                     artifacts: [url])
+                let _outHeadline = tl("libarchive 返回 ") + "\(status)"
+                let _outDetail = entries.isEmpty ? tl("无条目（解码器在块层就停了）") : entries.joined(separator: "\n")
+                let _outEvidence = ["CAB \(cab.count) B", tl("压缩类型 3 = LZX")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_arc_rr: ExploitModule = ExploitModule(
@@ -198,8 +206,9 @@ extension Catalog {
                 }
                 ctx.disarm("arc.rr", "done")
                 lines.append(tl("RockRidge CL/PL 环：27.0 与 27.2 都未修（上游已修，Apple 未取）"))
-                return ModuleOutcome(headline: tl("RockRidge 路径已遍历"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("RockRidge 路径已遍历")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let archive2: [ExploitModule] = [m_arc_cab, m_arc_rr]
 
@@ -247,8 +256,9 @@ extension Catalog {
                 _ = sem.wait(timeout: .now() + 1)
                 lines.append(engineReport)
                 ctx.disarm("aud.immersive", "probe complete")
-                return ModuleOutcome(headline: tl("沉浸式音频入口探测完成"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("沉浸式音频入口探测完成")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_aud_drc: ExploitModule = ExploitModule(
@@ -276,7 +286,9 @@ extension Catalog {
                 }
                 lines.append(Runners.audioConverter(format: 0x64726331, sampleRate: 48000, channels: 6))
                 ctx.disarm("aud.drc", "probe complete")
-                return ModuleOutcome(headline: tl("DRC 路径探测完成"), detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("DRC 路径探测完成")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let audio2: [ExploitModule] = [m_aud_immersive, m_aud_drc]
 
@@ -315,8 +327,10 @@ extension Catalog {
                 }
                 lines.append(tl("27.0 期望：切片上限未检查 → 插件内越界。27.2 期望：\"too many slices!\"。"))
                 ctx.disarm("vid.avc", "status=\(status)")
-                return ModuleOutcome(headline: tl("AVC 参数集路径已触发"),
-                                     detail: lines.joined(separator: "\n"), artifacts: [url])
+                let _outHeadline = tl("AVC 参数集路径已触发")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
 
     private static let m_vid_hevc: ExploitModule = ExploitModule(
@@ -353,8 +367,10 @@ extension Catalog {
                     lines.append(tl("接受 · 尺寸 ") + "\(dims.width)" + tl("×") + "\(dims.height)")
                 }
                 ctx.disarm("vid.hevc", "status=\(status)")
-                return ModuleOutcome(headline: tl("HEVC 层路径已触发"),
-                                     detail: lines.joined(separator: "\n"), artifacts: [url])
+                let _outHeadline = tl("HEVC 层路径已触发")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
     static let video: [ExploitModule] = [m_vid_avc, m_vid_hevc]
 
@@ -391,8 +407,10 @@ extension Catalog {
                     lines.append(tl("字体在 CGFont 层被拒绝"))
                 }
                 ctx.disarm("font.gdef", "done")
-                return ModuleOutcome(headline: tl("LigCaret 查询完成"),
-                                     detail: lines.joined(separator: "\n"), artifacts: [url])
+                let _outHeadline = tl("LigCaret 查询完成")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
     static let font2: [ExploitModule] = [m_font_gdef]
 
@@ -412,10 +430,11 @@ extension Catalog {
                 ctx.arm("kext.gpt", "describe")
                 let lines = GPTPayload.describe(image)
                 ctx.disarm("kext.gpt", "parsed")
-                return ModuleOutcome(headline: tl("GPT 镜像已构造并解析"),
-                                     detail: (lines + [tl("镜像 ") + "\(image.count)" + tl(" B · 4 个条目 · 名字域 36 单元 / 72 字节")]).joined(separator: "\n"),
-                                     evidence: [tl("27.0 扫描边界 0x48 = 72 B"), tl("27.2 收紧到 0x24 = 36 B")],
-                                     artifacts: [url])
+                let _outHeadline = tl("GPT 镜像已构造并解析")
+                let _outDetail = (lines + [tl("镜像 ") + "\(image.count)" + tl(" B · 4 个条目 · 名字域 36 单元 / 72 字节")]).joined(separator: "\n")
+                let _outEvidence = [tl("27.0 扫描边界 0x48 = 72 B"), tl("27.2 收紧到 0x24 = 36 B")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_kext_iohid: ExploitModule = ExploitModule(
@@ -436,7 +455,9 @@ extension Catalog {
                               "IOHIDEventCreateData", "IOHIDEventGetType",
                               "IOHIDEventCreateVendorDefined"])
                 ctx.disarm("kext.iohid", "probe complete")
-                return ModuleOutcome(headline: tl("IOKit 事件入口探测"), detail: r)
+                let _outHeadline = tl("IOKit 事件入口探测")
+                let _outDetail = r
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let kext: [ExploitModule] = [m_kext_gpt, m_kext_iohid]
 
@@ -465,7 +486,9 @@ extension Catalog {
                 let iconState = NSHomeDirectory() + "/Library/SpringBoard/IconState.plist"
                 lines.append(tl("本容器内 IconState: ") + "\(fm.fileExists(atPath: iconState) ? tl("存在") : tl("不存在"))")
                 ctx.disarm("sb.stash", "probe complete")
-                return ModuleOutcome(headline: tl("SpringBoard 路径探测"), detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("SpringBoard 路径探测")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_cal_unzip: ExploitModule = ExploitModule(
@@ -496,8 +519,9 @@ extension Catalog {
                 let result = Runners.Archive.extractAll(evil, to: probeDir)
                 lines.append(tl("libarchive 解包 ") + "\(result.count)" + tl(" 项（含 ../ 路径）→ 遏制必须由调用方负责"))
                 ctx.disarm("cal.unzip", "probe complete")
-                return ModuleOutcome(headline: tl("日历附件遏制路径探测"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("日历附件遏制路径探测")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let userspace: [ExploitModule] = [m_sb_stash, m_cal_unzip]
 

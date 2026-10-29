@@ -61,8 +61,9 @@ extension Catalog {
                         lines.append(tl("服务有回复但非字典 —— 握手被拒绝。"))
                     }
                     ctx.disarm("cm.fdleak", "handshake failed")
-                    return ModuleOutcome(headline: silent ? tl("服务无人监听（本平台不适用）") : tl("握手被拒绝"),
-                                         detail: lines.joined(separator: "\n"))
+                    let _outHeadline = silent ? tl("服务无人监听（本平台不适用）") : tl("握手被拒绝")
+                    let _outDetail = lines.joined(separator: "\n")
+                    return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
                 }
 
                 // control: the app's own open() on the same path must fail
@@ -110,16 +111,16 @@ extension Catalog {
                 }
 
                 ctx.disarm("cm.fdleak", "bytes=\(totalBytes)")
-                return ModuleOutcome(
-                    headline: totalBytes > 0 ? tl("跨沙盒读取 ") + "\(totalBytes)" + tl(" 字节") : tl("未取到数据"),
-                    detail: lines.joined(separator: "\n"),
-                    evidence: [
+                let _outHeadline = totalBytes > 0 ? tl("跨沙盒读取 ") + "\(totalBytes)" + tl(" 字节") : tl("未取到数据")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outEvidence = [
                         tl("对照: 应用自身 open() 被 EPERM 拒绝"),
                         tl("守护进程以自身凭据打开客户端指定的路径"),
                         tl("可读域: ") + "\(FdLeak.readableDomain)",
                         tl("iOS 27.2 起修复"),
-                    ],
-                    artifacts: stolen)
+                    ]
+                let _outArtifacts = stolen
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_sbx_toctou: ExploitModule = ExploitModule(
@@ -206,16 +207,16 @@ extension Catalog {
                     headline = tl("该构建上未越界")
                 }
 
-                return ModuleOutcome(
-                    headline: headline,
-                    detail: lines.joined(separator: "\n"),
-                    evidence: [
+                let _outHeadline = headline
+                let _outDetail = lines.joined(separator: "\n")
+                let _outEvidence = [
                         tl("签发时解析链接目标，消费时不复核路径"),
                         tl("无需竞态窗口"),
                         tl("Apple 未将其视为安全问题，无 CVE"),
                         tl("判定依据：直接读被拒 且 经链接读成功"),
-                    ],
-                    artifacts: artifacts)
+                    ]
+                let _outArtifacts = artifacts
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_cm_fdleak_boundary: ExploitModule = ExploitModule(
@@ -236,8 +237,9 @@ extension Catalog {
                 ctx.arm("cm.fdleak.boundary", "probe 15 targets")
                 guard let session = FdLeak.Session() else {
                     ctx.fail("cm.fdleak.boundary", tl("符号解析失败"))
-                    return ModuleOutcome(headline: tl("CoreMedia 符号不可用"),
-                                         detail: tl("无法 dlopen CoreMedia 或解析 FigXPC 入口"))
+                    let _outHeadline = tl("CoreMedia 符号不可用")
+                    let _outDetail = tl("无法 dlopen CoreMedia 或解析 FigXPC 入口")
+                    return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
                 }
                 defer { session.shutdown() }
 
@@ -251,8 +253,9 @@ extension Catalog {
                     lines.append(silent
                         ? tl("该 Mach 服务无人监听 —— 本平台不适用（模拟器内不运行 mediaplaybackd）。真机上该服务常驻。")
                         : tl("服务有回复但握手被拒绝。"))
-                    return ModuleOutcome(headline: silent ? tl("服务无人监听（本平台不适用）") : tl("握手被拒绝"),
-                                         detail: lines.joined(separator: "\n"))
+                    let _outHeadline = silent ? tl("服务无人监听（本平台不适用）") : tl("握手被拒绝")
+                    let _outDetail = lines.joined(separator: "\n")
+                    return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
                 }
 
                 var lines: [String] = []
@@ -274,10 +277,10 @@ extension Catalog {
                     }
                 }
                 ctx.disarm("cm.fdleak.boundary", "r=\(reachable) d=\(denied) a=\(absent)")
-                return ModuleOutcome(
-                    headline: "\(reachable)" + tl(" 可开 · ") + "\(denied)" + tl(" 存在但被拒 · ") + "\(absent)" + tl(" 不存在"),
-                    detail: lines.joined(separator: "\n"),
-                    evidence: [tl("-12203 = 存在但被拒"), tl("-17913 = 不存在")])
+                let _outHeadline = "\(reachable)" + tl(" 可开 · ") + "\(denied)" + tl(" 存在但被拒 · ") + "\(absent)" + tl(" 不存在")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outEvidence = [tl("-12203 = 存在但被拒"), tl("-17913 = 不存在")]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence)
             })
     static let crossSandbox: [ExploitModule] = [m_cm_fdleak, m_sbx_toctou, m_cm_fdleak_boundary]
 }

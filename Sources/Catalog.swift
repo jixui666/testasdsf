@@ -28,10 +28,11 @@ enum Catalog {
                 ctx.arm("cg.shading", "render R=136")
                 let detail = try Runners.renderPDF(pdf)
                 ctx.disarm("cg.shading", detail)
-                return ModuleOutcome(headline: tl("渲染存活 — 该构建未受影响"),
-                                     detail: detail,
-                                     evidence: ["PDF \(pdf.count) B", "R=136 vs nc=1"],
-                                     artifacts: [url])
+                let _outHeadline = tl("渲染存活 — 该构建未受影响")
+                let _outDetail = detail
+                let _outEvidence = ["PDF \(pdf.count) B", "R=136 vs nc=1"]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_cg_shading_sweep: ExploitModule = ExploitModule(
@@ -61,9 +62,10 @@ enum Catalog {
                         ctx.disarm("cg.shading.sweep", "R=\(r) refused")
                     }
                 }
-                return ModuleOutcome(headline: tl("全部 ") + "\(ladder.count)" + tl(" 个长度存活"),
-                                     detail: lines.joined(separator: "\n"),
-                                     evidence: [tl("存活: ") + "\(survived.map(String.init).joined(separator: ", "))"])
+                let _outHeadline = tl("全部 ") + "\(ladder.count)" + tl(" 个长度存活")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outEvidence = [tl("存活: ") + "\(survived.map(String.init).joined(separator: ", "))"]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence)
             })
 
     private static let m_cg_cmap: ExploitModule = ExploitModule(
@@ -82,10 +84,11 @@ enum Catalog {
                 ctx.arm("cg.cmap", "render cmap")
                 let detail = try Runners.renderPDF(pdf)
                 ctx.disarm("cg.cmap", detail)
-                return ModuleOutcome(headline: tl("渲染存活（与源分析的负结果一致）"),
-                                     detail: detail,
-                                     evidence: ["PDF \(pdf.count) B", tl("codespace 长度 128")],
-                                     artifacts: [url])
+                let _outHeadline = tl("渲染存活（与源分析的负结果一致）")
+                let _outDetail = detail
+                let _outEvidence = ["PDF \(pdf.count) B", tl("codespace 长度 128")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
     static let coreGraphics: [ExploitModule] = [m_cg_shading, m_cg_shading_sweep, m_cg_cmap]
 
@@ -107,10 +110,11 @@ enum Catalog {
                 ctx.arm("iio.tiff.planar", "decode planar")
                 let r = try Runners.decodeImage(tiff)
                 ctx.disarm("iio.tiff.planar", "decoded \(r.width)x\(r.height)")
-                return ModuleOutcome(headline: tl("解码存活 ") + "\(r.width)" + tl("×") + "\(r.height)",
-                                     detail: tl("帧数 ") + "\(r.frameCount)" + tl("，已解码 ") + "\(r.decoded)" + tl("，属性 ") + "\(r.properties)",
-                                     evidence: ["TIFF \(tiff.count) B", "spp=4 photometric=RGB"],
-                                     artifacts: [url])
+                let _outHeadline = tl("解码存活 ") + "\(r.width)" + tl("×") + "\(r.height)"
+                let _outDetail = tl("帧数 ") + "\(r.frameCount)" + tl("，已解码 ") + "\(r.decoded)" + tl("，属性 ") + "\(r.properties)"
+                let _outEvidence = ["TIFF \(tiff.count) B", "spp=4 photometric=RGB"]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_tiff_trunc: ExploitModule = ExploitModule(
@@ -141,10 +145,11 @@ enum Catalog {
                 }
                 ctx.disarm("iio.tiff.trunc", "3 runs")
                 let unstable = Set(digests.map { $0.split(separator: ": ").last.map(String.init) ?? $0 }).count > 1
-                return ModuleOutcome(headline: unstable ? tl("输出不稳定 — 未初始化内存迹象") : tl("输出稳定"),
-                                     detail: digests.joined(separator: "\n"),
-                                     evidence: ["TIFF \(tiff.count) B", tl("3 次解码指纹")],
-                                     artifacts: [url])
+                let _outHeadline = unstable ? tl("输出不稳定 — 未初始化内存迹象") : tl("输出稳定")
+                let _outDetail = digests.joined(separator: "\n")
+                let _outEvidence = ["TIFF \(tiff.count) B", tl("3 次解码指纹")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_apng_fctl: ExploitModule = ExploitModule(
@@ -163,10 +168,11 @@ enum Catalog {
                 ctx.arm("iio.apng.fctl", "getImageCount")
                 let r = try Runners.decodeImage(png)
                 ctx.disarm("iio.apng.fctl", "count=\(r.frameCount)")
-                return ModuleOutcome(headline: tl("帧数 ") + "\(r.frameCount)",
-                                     detail: tl("解码 ") + "\(r.decoded)" + tl("，尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)" + tl("\n属性: ") + "\(r.properties)",
-                                     evidence: ["PNG \(png.count) B", tl("fcTL 声明 26B 实到 4B")],
-                                     artifacts: [url])
+                let _outHeadline = tl("帧数 ") + "\(r.frameCount)"
+                let _outDetail = tl("解码 ") + "\(r.decoded)" + tl("，尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)" + tl("\n属性: ") + "\(r.properties)"
+                let _outEvidence = ["PNG \(png.count) B", tl("fcTL 声明 26B 实到 4B")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_jpeg_marker: ExploitModule = ExploitModule(
@@ -185,10 +191,11 @@ enum Catalog {
                 ctx.arm("iio.jpeg.marker", "decode")
                 let r = try Runners.decodeImage(jpg)
                 ctx.disarm("iio.jpeg.marker", "decoded=\(r.decoded)")
-                return ModuleOutcome(headline: tl("解析存活（已解码=") + "\(r.decoded)" + tl("）"),
-                                     detail: tl("帧数 ") + "\(r.frameCount)" + tl("，属性 ") + "\(r.properties)",
-                                     evidence: ["JPEG \(jpg.count) B", tl("声明长度 65518")],
-                                     artifacts: [url])
+                let _outHeadline = tl("解析存活（已解码=") + "\(r.decoded)" + tl("）")
+                let _outDetail = tl("帧数 ") + "\(r.frameCount)" + tl("，属性 ") + "\(r.properties)"
+                let _outEvidence = ["JPEG \(jpg.count) B", tl("声明长度 65518")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_jpeg_comment: ExploitModule = ExploitModule(
@@ -207,10 +214,11 @@ enum Catalog {
                 ctx.arm("iio.jpeg.comment", "read properties")
                 let r = try Runners.decodeImage(jpg)
                 ctx.disarm("iio.jpeg.comment", "props read")
-                return ModuleOutcome(headline: tl("元数据读取完成"),
-                                     detail: r.properties.isEmpty ? tl("无可用属性") : r.properties,
-                                     evidence: ["JPEG \(jpg.count) B", "UserComment count=1024 offset=16384"],
-                                     artifacts: [url])
+                let _outHeadline = tl("元数据读取完成")
+                let _outDetail = r.properties.isEmpty ? tl("无可用属性") : r.properties
+                let _outEvidence = ["JPEG \(jpg.count) B", "UserComment count=1024 offset=16384"]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_jpeg_gps: ExploitModule = ExploitModule(
@@ -229,10 +237,11 @@ enum Catalog {
                 ctx.arm("iio.jpeg.gps", "read GPS")
                 let r = try Runners.decodeImage(jpg)
                 ctx.disarm("iio.jpeg.gps", "read")
-                return ModuleOutcome(headline: tl("GPS 读取存活"),
-                                     detail: r.properties.isEmpty ? tl("无可用属性") : r.properties,
-                                     evidence: ["JPEG \(jpg.count) B", tl("值偏移 +65536")],
-                                     artifacts: [url])
+                let _outHeadline = tl("GPS 读取存活")
+                let _outDetail = r.properties.isEmpty ? tl("无可用属性") : r.properties
+                let _outEvidence = ["JPEG \(jpg.count) B", tl("值偏移 +65536")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_dds_bc7: ExploitModule = ExploitModule(
@@ -251,10 +260,11 @@ enum Catalog {
                 ctx.arm("iio.dds.bc7", "decode")
                 let r = try Runners.decodeImage(dds)
                 ctx.disarm("iio.dds.bc7", "decoded=\(r.decoded)")
-                return ModuleOutcome(headline: tl("解码存活（已解码=") + "\(r.decoded)" + tl("）"),
-                                     detail: tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)",
-                                     evidence: ["DDS \(dds.count) B", tl("需要 65536 B，实际 64 B")],
-                                     artifacts: [url])
+                let _outHeadline = tl("解码存活（已解码=") + "\(r.decoded)" + tl("）")
+                let _outDetail = tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)"
+                let _outEvidence = ["DDS \(dds.count) B", tl("需要 65536 B，实际 64 B")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_iio_ktx2: ExploitModule = ExploitModule(
@@ -275,10 +285,11 @@ enum Catalog {
                 ctx.arm("iio.ktx2", "decode")
                 let r = try Runners.decodeImage(data)
                 ctx.disarm("iio.ktx2", "decoded=\(r.decoded)")
-                return ModuleOutcome(headline: tl("解码存活（已解码=") + "\(r.decoded)" + tl("）"),
-                                     detail: tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)",
-                                     evidence: ["KTX2 \(data.count) B"],
-                                     artifacts: [url])
+                let _outHeadline = tl("解码存活（已解码=") + "\(r.decoded)" + tl("）")
+                let _outDetail = tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)"
+                let _outEvidence = ["KTX2 \(data.count) B"]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
     static let imageIO: [ExploitModule] = [m_iio_tiff_planar, m_iio_tiff_trunc, m_iio_apng_fctl, m_iio_jpeg_marker, m_iio_jpeg_comment, m_iio_jpeg_gps, m_iio_dds_bc7, m_iio_ktx2]
 
@@ -302,10 +313,11 @@ enum Catalog {
                 ctx.arm("arc.iso", "iterate headers")
                 let (entries, status) = try Runners.Archive.list(iso)
                 ctx.disarm("arc.iso", "entries=\(entries.count)")
-                return ModuleOutcome(headline: tl("遍历完成，") + "\(entries.count)" + tl(" 条目"),
-                                     detail: entries.joined(separator: "\n") + tl("\n状态: ") + "\(status)",
-                                     evidence: ["ISO \(iso.count) B", tl("累计路径 1024 B")],
-                                     artifacts: [url])
+                let _outHeadline = tl("遍历完成，") + "\(entries.count)" + tl(" 条目")
+                let _outDetail = entries.joined(separator: "\n") + tl("\n状态: ") + "\(status)"
+                let _outEvidence = ["ISO \(iso.count) B", tl("累计路径 1024 B")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_arc_iso_stress: ExploitModule = ExploitModule(
@@ -333,9 +345,10 @@ enum Catalog {
                     }
                 }
                 ctx.disarm("arc.iso.stress", "32 rounds done")
-                return ModuleOutcome(headline: tl("32 轮完成，进程存活"),
-                                     detail: lines.suffix(10).joined(separator: "\n"),
-                                     evidence: [tl("重复越界写 32 次")])
+                let _outHeadline = tl("32 轮完成，进程存活")
+                let _outDetail = lines.suffix(10).joined(separator: "\n")
+                let _outEvidence = [tl("重复越界写 32 次")]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence)
             })
     static let archive: [ExploitModule] = [m_arc_iso, m_arc_iso_stress]
 
@@ -359,10 +372,11 @@ enum Catalog {
                 ctx.arm("cm.rpu", "parse rpu")
                 let rc = try Runners.rpuParse(payload, version: &version, level: &level)
                 ctx.disarm("cm.rpu", "rc=\(rc)")
-                return ModuleOutcome(headline: tl("解析返回 ") + "\(rc)",
-                                     detail: tl("OSStatus=") + "\(rc)" + tl("  dmVersion=") + "\(version)" + tl("  dmLevel=") + "\(level)" + tl("\n负载 ") + "\(payload.count)" + tl(" B，block-id 1 × 6（容量 4）"),
-                                     evidence: ["RPU \(payload.count) B"],
-                                     artifacts: [url])
+                let _outHeadline = tl("解析返回 ") + "\(rc)"
+                let _outDetail = tl("OSStatus=") + "\(rc)" + tl("  dmVersion=") + "\(version)" + tl("  dmLevel=") + "\(level)" + tl("\n负载 ") + "\(payload.count)" + tl(" B，block-id 1 × 6（容量 4）")
+                let _outEvidence = ["RPU \(payload.count) B"]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
 
     private static let m_cm_rpu_sweep: ExploitModule = ExploitModule(
@@ -393,7 +407,9 @@ enum Catalog {
                     }
                 }
                 ctx.disarm("cm.rpu.sweep", "done")
-                return ModuleOutcome(headline: tl("扫描完成"), detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("扫描完成")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let coreMedia: [ExploitModule] = [m_cm_rpu, m_cm_rpu_sweep]
 
@@ -435,9 +451,10 @@ enum Catalog {
                 } else {
                     headline = tl("竞态完成 ") + "\(stats.operations)" + tl(" 次操作，无异常返回")
                 }
-                return ModuleOutcome(headline: headline,
-                                     detail: lines.joined(separator: "\n"),
-                                     evidence: baseline.map { "\($0.key): \($0.value)" })
+                let _outHeadline = headline
+                let _outDetail = lines.joined(separator: "\n")
+                let _outEvidence = baseline.map { "\($0.key): \($0.value)" }
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence)
             })
 
     private static let m_kern_decmpfs: ExploitModule = ExploitModule(
@@ -467,9 +484,10 @@ enum Catalog {
                     }
                 }
                 ctx.disarm("kern.decmpfs", "hits=\(totalHits)")
-                return ModuleOutcome(headline: totalHits > 0 ? tl("发现 ") + "\(totalHits)" + tl(" 个内核指针候选") : tl("未发现内核指针"),
-                                     detail: lines.joined(separator: "\n"),
-                                     artifacts: [url])
+                let _outHeadline = totalHits > 0 ? tl("发现 ") + "\(totalHits)" + tl(" 个内核指针候选") : tl("未发现内核指针")
+                let _outDetail = lines.joined(separator: "\n")
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, artifacts: _outArtifacts)
             })
 
     private static let m_kern_baseline: ExploitModule = ExploitModule(
@@ -486,8 +504,9 @@ enum Catalog {
                 ctx.arm("kern.baseline", "collect")
                 let base = KernelIPC.baseline()
                 ctx.disarm("kern.baseline", "collected")
-                return ModuleOutcome(headline: tl("基线已采集"),
-                                     detail: base.map { "\($0.key) = \($0.value)" }.sorted().joined(separator: "\n"))
+                let _outHeadline = tl("基线已采集")
+                let _outDetail = base.map { "\($0.key) = \($0.value)" }.sorted().joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let kernel: [ExploitModule] = [m_kern_ipc, m_kern_decmpfs, m_kern_baseline]
 
@@ -512,8 +531,9 @@ enum Catalog {
                 lines.append(Runners.audioConverter(format: 0x6C633320, sampleRate: 48000, channels: 1))
                 lines.append(Runners.audioConverter(format: 0x6C633320, sampleRate: 16000, channels: 2))
                 ctx.disarm("aud.lc3", "probe complete")
-                return ModuleOutcome(headline: lc3 == nil ? tl("无授权 — 只能走无线链路") : tl("持有授权"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = lc3 == nil ? tl("无授权 — 只能走无线链路") : tl("持有授权")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_aud_hoa: ExploitModule = ExploitModule(
@@ -545,8 +565,9 @@ enum Catalog {
                 }
                 lines.append(Runners.audioConverter(format: 0x6D686D31, sampleRate: 48000, channels: 4))
                 ctx.disarm("aud.hoa", "probe complete")
-                return ModuleOutcome(headline: tl("解码器可达性探测完成"),
-                                     detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("解码器可达性探测完成")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_aud_haptic: ExploitModule = ExploitModule(
@@ -563,7 +584,9 @@ enum Catalog {
                 ctx.arm("aud.haptic", "register + play")
                 let report = Runners.hapticCustomAudio(frameCount: 4096, declaredBytes: 4)
                 ctx.disarm("aud.haptic", "played")
-                return ModuleOutcome(headline: tl("触觉事件已尝试"), detail: report)
+                let _outHeadline = tl("触觉事件已尝试")
+                let _outDetail = report
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let audio: [ExploitModule] = [m_aud_lc3, m_aud_hoa, m_aud_haptic]
 
@@ -588,22 +611,24 @@ enum Catalog {
                 do {
                     let detail = try Runners.loadFont(cff)
                     ctx.disarm("font.cff", detail)
-                    return ModuleOutcome(headline: tl("字体已加载并绘制"), detail: detail,
-                                         evidence: ["CFF \(cff.count) B", tl("charstring 推 300 个操作数")],
-                                         artifacts: [url])
+                    let _outHeadline = tl("字体已加载并绘制")
+                    let _outDetail = detail
+                    let _outEvidence = ["CFF \(cff.count) B", tl("charstring 推 300 个操作数")]
+                    let _outArtifacts = [url]
+                    return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
                 } catch {
                     // A refusal is the informative result here: it tells you which stage
                     // rejected the font, which is exactly what the A/B compares.
                     let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     ctx.disarm("font.cff", "rejected: \(message)")
-                    return ModuleOutcome(
-                        headline: tl("字体在解析阶段被拒绝"),
-                        detail: "\(message)" + tl("\n\n种子 ") + "\(cff.count)" + tl(" B，单个 charstring 连续推入 300 个操作数后 endchar。\n") +
+                    let _outHeadline = tl("字体在解析阶段被拒绝")
+                    let _outDetail = "\(message)" + tl("\n\n种子 ") + "\(cff.count)" + tl(" B，单个 charstring 连续推入 300 个操作数后 endchar。\n") +
                                 tl("27.0 期望：push 路径无计数检查，操作数栈越界。\n") +
                                 tl("27.2 期望：Push/Pop 两道栈保护在解释前拒绝该字体。\n") +
-                                tl("被拒绝本身即说明校验发生在解释器之前 —— 这是该构建上有效的观测。"),
-                        evidence: ["CFF \(cff.count) B", tl("操作数 300 > 栈容量 48")],
-                        artifacts: [url])
+                                tl("被拒绝本身即说明校验发生在解释器之前 —— 这是该构建上有效的观测。")
+                    let _outEvidence = ["CFF \(cff.count) B", tl("操作数 300 > 栈容量 48")]
+                    let _outArtifacts = [url]
+                    return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
                 }
             })
 
@@ -625,9 +650,11 @@ enum Catalog {
                 ctx.arm("mdl.usda", "MDLAsset")
                 let detail = try Runners.loadUSDA(at: url)
                 ctx.disarm("mdl.usda", detail)
-                return ModuleOutcome(headline: tl("资产载入存活"), detail: detail,
-                                     evidence: ["USDA \(usda.count) B", tl("2000 层嵌套")],
-                                     artifacts: [url])
+                let _outHeadline = tl("资产载入存活")
+                let _outDetail = detail
+                let _outEvidence = ["USDA \(usda.count) B", tl("2000 层嵌套")]
+                let _outArtifacts = [url]
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail, evidence: _outEvidence, artifacts: _outArtifacts)
             })
     static let fonts: [ExploitModule] = [m_font_cff, m_mdl_usda]
 
@@ -653,7 +680,9 @@ enum Catalog {
                     "/System/Library/Frameworks/GameController.framework/GameController",
                     symbols: ["GCController", "GCHIDEventSource", "GCExtendedGamepad"])
                 ctx.disarm("probe.hid", "probe complete")
-                return ModuleOutcome(headline: tl("HID 路径可达性"), detail: iokit + "\n" + gc)
+                let _outHeadline = tl("HID 路径可达性")
+                let _outDetail = iokit + "\n" + gc
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_probe_ane: ExploitModule = ExploitModule(
@@ -675,7 +704,9 @@ enum Catalog {
                     "/System/Library/PrivateFrameworks/CoreML.framework/CoreML",
                     symbols: ["MLModel", "MLComputePlan"])
                 ctx.disarm("probe.ane", "probe complete")
-                return ModuleOutcome(headline: tl("ANE 用户态入口探测"), detail: r1 + "\n" + r2)
+                let _outHeadline = tl("ANE 用户态入口探测")
+                let _outDetail = r1 + "\n" + r2
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
 
     private static let m_probe_privset: ExploitModule = ExploitModule(
@@ -705,7 +736,9 @@ enum Catalog {
                 let writable = Probe.interestingRoots.map { Probe.path($0) }.filter { $0.writable }
                 lines.append(tl("可写根目录: ") + "\(writable.isEmpty ? tl("无") : writable.map { $0.path }.joined(separator: ", "))")
                 ctx.disarm("probe.privset", "collected")
-                return ModuleOutcome(headline: tl("权限面已采集"), detail: lines.joined(separator: "\n"))
+                let _outHeadline = tl("权限面已采集")
+                let _outDetail = lines.joined(separator: "\n")
+                return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
     static let probes: [ExploitModule] = [m_probe_hid, m_probe_ane, m_probe_privset]
 }
