@@ -181,12 +181,30 @@ enum LoadedImageScan {
         let header: UnsafeRawPointer
     }
 
+    // `_dyld_image_count` and friends live in <mach-o/dyld.h>, which the Darwin overlay does
+    // not re-export to Swift, so they are resolved with dlsym instead of being imported.
+    private typealias CountFn = @convention(c) () -> UInt32
+    private typealias HeaderFn = @convention(c) (UInt32) -> UnsafeMutableRawPointer?
+    private typealias NameFn = @convention(c) (UInt32) -> UnsafePointer<CChar>?
+
+    private static let bindings: (count: CountFn, header: HeaderFn, name: NameFn)? = {
+        guard let count = DyLib.shared.symbol("_dyld_image_count"),
+              let header = DyLib.shared.symbol("_dyld_get_image_header"),
+              let name = DyLib.shared.symbol("_dyld_get_image_name") else { return nil }
+        return (unsafeBitCast(count, to: CountFn.self),
+                unsafeBitCast(header, to: HeaderFn.self),
+                unsafeBitCast(name, to: NameFn.self))
+    }()
+
+    static var available: Bool { bindings != nil }
+
     static func images() -> [Image] {
+        guard let b = bindings else { return [] }
         var out: [Image] = []
-        let total = _dyld_image_count()
+        let total = b.count()
         var i: UInt32 = 0
         while i < total {
-            if let namePointer = _dyld_get_image_name(i), let header = _dyld_get_image_header(i) {
+            if let namePointer = b.name(i), let header = b.header(i) {
                 out.append(Image(name: String(cString: namePointer),
                                  header: UnsafeRawPointer(header)))
             }
@@ -357,7 +375,7 @@ extension Catalog {
                             if !parsed.1.isEmpty { origin = origin + " · " + parsed.1 }
                         } else {
                             unreachable += 1
-                            origin = tl("dlopen 成功但未找到镜像")
+                            origin = tl("dlopen 成功但未找到镜像（dyld 符号可用=") + "\(LoadedImageScan.available)" + "）"
                         }
                     } else {
                         unreachable += 1
