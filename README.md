@@ -2,7 +2,7 @@
 
 [中文](README.zh-CN.md)
 
-An iOS 17.0–27.1 vulnerability-verification and device-modification lab, **51 modules**. Primary target: **iOS 27.0.1 / iPhone 18 Pro Max** (iPhone19,7 · 24A446).
+An iOS 17.0–27.1 vulnerability-verification and device-modification lab, **52 modules**. Primary target: **iOS 27.0.1 / iPhone 18 Pro Max** (iPhone19,7 · 24A446).
 
 Component coverage: ImageIO, CoreGraphics, CoreMedia, FontParser, ArchiveUtility, VideoToolbox, AudioToolbox, Calendar, Dolby Vision RPU, XNU kernel IPC, sandbox & filesystem, GPT / kexts, HID / peripherals / radio, entitlement probing.
 
@@ -54,7 +54,7 @@ Composite ids (e.g. `CVE-2026-112627 / 112561`) collapse into the primary id's f
 | [CVE-2026-113912 / 86972](CVE-2026-113912/) | `aud.drc` | AudioCodecs · mpddrc::UniDrcSelection | OOB read | system process | MPEG-D DRC downmix matrix coefficient validation | `CVE-2026-113912.swift` · `CVE-2026-113912.c` |
 | [CVE-2026-65385](CVE-2026-65385/) | `kext.iohid` | IOKit.framework · IOHIDEventAppendEvent | OOB write | kernel | IOKit event short-heap fixed-offset write | `CVE-2026-65385.swift` · `CVE-2026-65385.c` |
 
-## Modules without a CVE — 11
+## Modules without a CVE — 12
 
 | Module | Component | Title | Files |
 |---|---|---|---|
@@ -69,6 +69,7 @@ Composite ids (e.g. `CVE-2026-112627 / 112561`) collapse into the primary id's f
 | [tool.container](tool.container/) | Container · ensureAll / probe / repair / normalize | Container read/write normalisation (data container self-test and repair) | `tool.container.swift` |
 | [tool.backup](tool.backup/) | BackupPane · ZipWriter · libarchive | Backup and restore round-trip self-test | `tool.backup.swift` |
 | [tool.paths](tool.paths/) | Probe · FileManager | Filesystem permission matrix sweep | `tool.paths.swift` |
+| [cal.format](Sources/CalFormat.swift) | CalendarFoundation · libarchive imports | Which archive formats the Calendar unzip path registers — `format_all` (bytes are sniffed, so an ISO/Joliet attachment is a reachable shape) or `format_zip` only | `CalFormat.swift` |
 
 ## Anatomy of a POC file (.swift)
 
@@ -156,14 +157,34 @@ Two things the workflow exists to pin down:
   `Options.td` — which is why it is easy to miss.
 
 Evidence collection on device: **Mod → Backup** packs the whole data container — including
-`Library/Application Support/Cinder27/work`, where every module writes its artifacts, and the
-write-ahead journal — into `Documents/Cinder27/Backups/cinder27-<stamp>.zip`.
-`UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` are already set, so that ZIP is
-reachable from Files.app without any extra tooling.
+`Library/Application Support/Cinder27/work`, where every module writes its artifacts, its
+`results/<module>.json` outcome record and the write-ahead journal — into
+`Documents/Cinder27/Backups/cinder27-<stamp>.zip`. `UIFileSharingEnabled` +
+`LSSupportsOpeningDocumentsInPlace` are already set, so that ZIP is reachable from Files.app
+without any extra tooling.
+
+## Device run — iOS 27.0.1 (24A446), iPhone19,7
+
+Recorded from a container backup (`cinder27-journal.json`, `work/`), 2026-10-29. A `died` phase
+means the process terminated inside that primitive and the journal entry was never disarmed.
+
+| Module | On device | What it establishes |
+|---|---|---|
+| `cm.fdleak` | **5,015,357 B across 7 files** | The bytestream daemon vended descriptors for the iTunes media store; `MediaLibrary.sqlitedb` came back as a complete 45-table SQLite schema |
+| `kern.decmpfs` | **died** inside the 4th probe (`chunks=2 produce=1`) | The under-production path is not merely disclosive on this build — it is fatal |
+| `cg.shading.sweep` | **died at R=8** (R=4 survived) | The fatal rung is far below the 136 the single shot uses |
+| `cg.shading` | **died** at render, R=136 | Value-controlled stack overflow |
+| `arc.iso.stress` | **died** at round 32 | The 2-byte libarchive pathname overrun is fatal on device |
+| `sbx.toctou` | **negative** — `bypassed=0 nosandbox=10 blocked=1` | 10 of 11 targets are readable *directly*, so there is no sandbox barrier for the link swap to cross |
+| `kern.ipc` | survived, `ops=512` | No UAF receipt |
+| `iio.tiff.trunc`, `iio.jpeg.comment`, `iio.tiff.planar`, `kext.gpt`, `tool.*` | completed | As recorded by the harness |
+
+Not yet run on device: `cal.unzip`, `cal.format`, `cm.fdleak.boundary`, `cm.rpu`, `fonts` — the
+Calendar pair is the open question behind 112619.
 
 ## Verification status
 
-Full 51-module regression (simulator build): **47 done + 4 armed**.
+Full 52-module regression (simulator build): **47 done + 4 armed**.
 
 Armed is not a timeout — it is the **death oracle firing**: the payload crashes the process, the journal stays armed, the process vanishes. The cm.rpu / cm.rpu.sweep crash stacks land inside `CMGetDMVersionLevelFromRPU` with SIGSEGV; the C twin pins the mechanism — the iOS surface is the 4-argument `(bytes, count, u32*, u32*)` form, while the macOS export takes a single `CFDataRef` (verified by disassembly: arg0 goes through a CFRetain-style GOT call before `FigHEVCBridge_GetRPUMetadata`), so the Swift 4-arg call dies at entry on the simulator's CoreMedia. cg.shading / cg.shading.sweep are R=136 long-overflow ladder sweeps, by design advancing within one process to the fatal rung.
 

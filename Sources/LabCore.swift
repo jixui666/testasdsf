@@ -129,6 +129,7 @@ final class LabEngine: ObservableObject {
             do {
                 var out = try module.run(ctx)
                 out.elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
+                Results.record(out, module: module, workdir: self.workdir)
                 DispatchQueue.main.async {
                     self.outcomes[module.id] = out
                     self.running.remove(module.id)
@@ -139,6 +140,7 @@ final class LabEngine: ObservableObject {
                 ctx.fail(module.id, message)
                 var out = ModuleOutcome(headline: tl("失败"), detail: message, failed: true)
                 out.elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
+                Results.record(out, module: module, workdir: self.workdir)
                 DispatchQueue.main.async {
                     self.outcomes[module.id] = out
                     self.running.remove(module.id)
@@ -183,6 +185,7 @@ extension LabEngine {
             }
             out.elapsedMs = Int(Date().timeIntervalSince(started) * 1000)
             let finished = out
+            Results.record(finished, module: module, workdir: self.workdir)
             let next = index + 1
             DispatchQueue.main.async {
                 self.outcomes[module.id] = finished

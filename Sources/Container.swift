@@ -315,6 +315,28 @@ enum Container {
         URL(fileURLWithPath: normalize(path))
     }
 
+    /// Path relative to the data container, tolerating the `/private` prefix.
+    ///
+    /// NSHomeDirectory() reports `/var/mobile/…` while URL.path reports
+    /// `/private/var/mobile/…`. A plain string replacement therefore never matches, so the
+    /// backup would store absolute paths — which silently disables both the "skip previous
+    /// backups" and the "skip Library/Caches" checks, and makes every backup contain the
+    /// previous one.
+    static func relativePath(_ path: String, under root: String) -> String {
+        let p = pathComponents(path)
+        let r = pathComponents(root)
+        var i = 0
+        while i < p.count, i < r.count, p[i] == r[i] { i += 1 }
+        guard i > 0, i < p.count else { return path }
+        return p[i...].joined(separator: "/")
+    }
+
+    private static func pathComponents(_ path: String) -> [String] {
+        var parts = path.split(separator: "/").map(String.init)
+        if parts.first == "private" { parts.removeFirst() }
+        return parts
+    }
+
     /// Write that cannot fail on a missing parent and cannot half-write.
     @discardableResult
     static func write(_ data: Data, to path: String) throws -> URL {

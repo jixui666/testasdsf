@@ -697,7 +697,7 @@ struct BackupPane: View {
                 for case let url as URL in enumerator {
                     guard let v = try? url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey]),
                           v.isRegularFile == true else { continue }
-                    let relative = url.path.replacingOccurrences(of: rootPath + "/", with: "")
+                    let relative = Container.relativePath(url.path, under: rootPath)
                     if relative.hasPrefix(backupPrefix) { continue }
                     if skipCaches && relative.hasPrefix("Library/Caches/") { continue }
                     if let size = v.fileSize, size > 80_000_000 { skipped += 1; continue }
