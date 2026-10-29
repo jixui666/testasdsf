@@ -281,47 +281,42 @@ enum LoadedImageScan {
     /// The dyld shared cache strips the nlist entries, so on 27.0.1 every Calendar image
     /// reports an empty LC_SYMTAB — the imports are still named, but in the chained-fixup
     /// string pool inside __LINKEDIT. Scanning that range for the symbol names recovers the
-    /// same signal the on-disk route would have produced. The range is the segment's own
-    /// filesize, so a corrupt header produces a note instead of a read past the mapping.
+    /// same signal the on-disk route would have produced.
+    ///
+    /// In the shared cache an image's __LINKEDIT sits in the cache-wide linkedit region, so
+    /// `__LINKEDIT.vmaddr - __TEXT.vmaddr` is *gigabytes*, not a few pages: an earlier version
+    /// rejected every candidate with a 1 GB sanity bound and reported "missing segments",
+    /// which is why the first run of this route produced nothing. The distance is now allowed
+    /// up to 4 GB and the scan is capped by size instead, with the geometry recorded in the
+    /// note so a miss is diagnosable rather than opaque.
     static func needleHits(in image: Image, needles: [String]) -> (hits: [String], note: String) {
         let l = layout(of: image)
         if !l.note.isEmpty { return ([], l.note) }
-        guard l.hasText, l.hasLink, l.linkVM >= l.textVM, l.linkVM - l.textVM < (1 << 30) else {
-            return ([], "缺少 __TEXT / __LINKEDIT")
+        guard l.hasText, l.hasLink else { return ([], "缺少 __TEXT / __LINKEDIT") }
+        guard l.linkVM >= l.textVM else { return ([], "段序异常 text=0x" + String(l.textVM, radix: 16)) }
+        let delta = l.linkVM - l.textVM
+        guard delta < (4 << 30) else { return ([], "段间距异常 " + "\(delta)") }
+        guard l.linkSize > 0, l.linkSize < (1 << 31) else {
+            return ([], "__LINKEDIT 尺寸异常 " + "\(l.linkSize)")
         }
-        let cap: UInt64 = 64 << 20
+
+        let cap: UInt64 = 256 << 20
         let size = min(l.linkSize, cap)
-        guard size > 0 else { return ([], "__LINKEDIT 尺寸异常") }
-
         let b = image.header.assumingMemoryBound(to: UInt8.self)
-        let start = b + Int(l.linkVM - l.textVM)
-        let count = Int(size)
-        var hits: [String] = []
-        for needle in needles {
-            if patternIn(start, count: count, pattern: Array(needle.utf8)) {
-                hits.append(needle)
-            }
-        }
-        let note = l.linkSize > cap ? "扫描已截断到 64 MB" : ""
-        return (hits, note)
-    }
+        let start = b + Int(delta)
 
-    private static func patternIn(_ base: UnsafePointer<UInt8>, count: Int, pattern: [UInt8]) -> Bool {
-        guard !pattern.isEmpty, count >= pattern.count else { return false }
-        let n = pattern.count
-        let last = count - n
-        var i = 0
-        while i <= last {
-            if base[i] == pattern[0] {
-                var k = 1
-                while k < n, base[i + k] == pattern[k] {
-                    k += 1
-                }
-                if k == n { return true }
-            }
-            i += 1
+        // Data(bytesNoCopy:) wraps the mapping without copying and range(of:) is a real
+        // substring search, which matters when the region is hundreds of megabytes.
+        let region = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: start),
+                          count: Int(size), deallocator: .none)
+        var hits: [String] = []
+        for needle in needles where region.range(of: Data(needle.utf8)) != nil {
+            hits.append(needle)
         }
-        return false
+
+        var note = "linkedit=" + "\(l.linkSize)" + " scanned=" + "\(size)" + " delta=" + "\(delta)"
+        if l.linkSize > cap { note += "（已截断）" }
+        return (hits, note)
     }
 
     /// Imported symbols of a mapped image. The addresses come from LC_SEGMENT_64 metadata, and
