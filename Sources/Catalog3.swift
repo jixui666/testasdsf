@@ -6,9 +6,8 @@ extension Catalog {
 
     /// The two primitives added after the first pass. Both are cross-sandbox: they are the
     /// only entries in the whole set that hand back bytes the app could never `open()`.
-    static let crossSandbox: [ExploitModule] = [
 
-        ExploitModule(
+    private static let m_cm_fdleak: ExploitModule = ExploitModule(
             id: "cm.fdleak",
             titleZh: "CoreMedia bytestream XPC 跨沙盒文件描述符获取",
             cve: "CVE-2026-112706",
@@ -121,9 +120,9 @@ extension Catalog {
                         tl("iOS 27.2 起修复"),
                     ],
                     artifacts: stolen)
-            }),
+            })
 
-        ExploitModule(
+    private static let m_sbx_toctou: ExploitModule = ExploitModule(
             id: "sbx.toctou",
             titleZh: "sandbox_extension 符号链接 TOCTOU 越界读",
             cve: "",
@@ -217,9 +216,9 @@ extension Catalog {
                         tl("判定依据：直接读被拒 且 经链接读成功"),
                     ],
                     artifacts: artifacts)
-            }),
+            })
 
-        ExploitModule(
+    private static let m_cm_fdleak_boundary: ExploitModule = ExploitModule(
             id: "cm.fdleak.boundary",
             titleZh: "跨沙盒可读域边界测绘",
             cve: "CVE-2026-112706",
@@ -279,6 +278,6 @@ extension Catalog {
                     headline: "\(reachable)" + tl(" 可开 · ") + "\(denied)" + tl(" 存在但被拒 · ") + "\(absent)" + tl(" 不存在"),
                     detail: lines.joined(separator: "\n"),
                     evidence: [tl("-12203 = 存在但被拒"), tl("-17913 = 不存在")])
-            }),
-    ]
+            })
+    static let crossSandbox: [ExploitModule] = [m_cm_fdleak, m_sbx_toctou, m_cm_fdleak_boundary]
 }

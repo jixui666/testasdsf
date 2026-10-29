@@ -12,8 +12,7 @@ enum Catalog {
 
     // MARK: - CoreGraphics
 
-    static let coreGraphics: [ExploitModule] = [
-        ExploitModule(
+    private static let m_cg_shading: ExploitModule = ExploitModule(
             id: "cg.shading",
             titleZh: "Type-5 阴影栈溢出（值可控 OOB 写）",
             cve: "CVE-2026-112611",
@@ -33,9 +32,9 @@ enum Catalog {
                                      detail: detail,
                                      evidence: ["PDF \(pdf.count) B", "R=136 vs nc=1"],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_cg_shading_sweep: ExploitModule = ExploitModule(
             id: "cg.shading.sweep",
             titleZh: "溢出长度扫描（找吸收阈值）",
             cve: "CVE-2026-112611",
@@ -65,9 +64,9 @@ enum Catalog {
                 return ModuleOutcome(headline: tl("全部 ") + "\(ladder.count)" + tl(" 个长度存活"),
                                      detail: lines.joined(separator: "\n"),
                                      evidence: [tl("存活: ") + "\(survived.map(String.init).joined(separator: ", "))"])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_cg_cmap: ExploitModule = ExploitModule(
             id: "cg.cmap",
             titleZh: "CMap /UseCMap 递归越界写（负结果探针）",
             cve: "CVE-2026-112610",
@@ -87,13 +86,12 @@ enum Catalog {
                                      detail: detail,
                                      evidence: ["PDF \(pdf.count) B", tl("codespace 长度 128")],
                                      artifacts: [url])
-            }),
-    ]
+            })
+    static let coreGraphics: [ExploitModule] = [m_cg_shading, m_cg_shading_sweep, m_cg_cmap]
 
     // MARK: - ImageIO
 
-    static let imageIO: [ExploitModule] = [
-        ExploitModule(
+    private static let m_iio_tiff_planar: ExploitModule = ExploitModule(
             id: "iio.tiff.planar",
             titleZh: "TIFF planar 散写越界",
             cve: "CVE-2026-112633 / 112614",
@@ -113,9 +111,9 @@ enum Catalog {
                                      detail: tl("帧数 ") + "\(r.frameCount)" + tl("，已解码 ") + "\(r.decoded)" + tl("，属性 ") + "\(r.properties)",
                                      evidence: ["TIFF \(tiff.count) B", "spp=4 photometric=RGB"],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_tiff_trunc: ExploitModule = ExploitModule(
             id: "iio.tiff.trunc",
             titleZh: "TIFF 截断条带 → 未初始化堆进像素",
             cve: "CVE-2026-112632",
@@ -147,9 +145,9 @@ enum Catalog {
                                      detail: digests.joined(separator: "\n"),
                                      evidence: ["TIFF \(tiff.count) B", tl("3 次解码指纹")],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_apng_fctl: ExploitModule = ExploitModule(
             id: "iio.apng.fctl",
             titleZh: "APNG fcTL 截断 → 栈上未初始化帧几何",
             cve: "CVE-2026-112630",
@@ -169,9 +167,9 @@ enum Catalog {
                                      detail: tl("解码 ") + "\(r.decoded)" + tl("，尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)" + tl("\n属性: ") + "\(r.properties)",
                                      evidence: ["PNG \(png.count) B", tl("fcTL 声明 26B 实到 4B")],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_jpeg_marker: ExploitModule = ExploitModule(
             id: "iio.jpeg.marker",
             titleZh: "JPEG 标记长度越界",
             cve: "CVE-2026-112634",
@@ -191,9 +189,9 @@ enum Catalog {
                                      detail: tl("帧数 ") + "\(r.frameCount)" + tl("，属性 ") + "\(r.properties)",
                                      evidence: ["JPEG \(jpg.count) B", tl("声明长度 65518")],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_jpeg_comment: ExploitModule = ExploitModule(
             id: "iio.jpeg.comment",
             titleZh: "EXIF UserComment 短读 → 元数据泄露",
             cve: "CVE-2026-112571",
@@ -213,9 +211,9 @@ enum Catalog {
                                      detail: r.properties.isEmpty ? tl("无可用属性") : r.properties,
                                      evidence: ["JPEG \(jpg.count) B", "UserComment count=1024 offset=16384"],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_jpeg_gps: ExploitModule = ExploitModule(
             id: "iio.jpeg.gps",
             titleZh: "GPS IFD 值偏移越界",
             cve: "CVE-2026-112629",
@@ -235,9 +233,9 @@ enum Catalog {
                                      detail: r.properties.isEmpty ? tl("无可用属性") : r.properties,
                                      evidence: ["JPEG \(jpg.count) B", tl("值偏移 +65536")],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_dds_bc7: ExploitModule = ExploitModule(
             id: "iio.dds.bc7",
             titleZh: "BC7 纹理 mip 截断",
             cve: "CVE-2026-112627",
@@ -257,9 +255,9 @@ enum Catalog {
                                      detail: tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)",
                                      evidence: ["DDS \(dds.count) B", tl("需要 65536 B，实际 64 B")],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_iio_ktx2: ExploitModule = ExploitModule(
             id: "iio.ktx2",
             titleZh: "KTX2 维度/层级尺寸运算",
             cve: "CVE-2026-112625",
@@ -281,13 +279,12 @@ enum Catalog {
                                      detail: tl("尺寸 ") + "\(r.width)" + tl("×") + "\(r.height)",
                                      evidence: ["KTX2 \(data.count) B"],
                                      artifacts: [url])
-            }),
-    ]
+            })
+    static let imageIO: [ExploitModule] = [m_iio_tiff_planar, m_iio_tiff_trunc, m_iio_apng_fctl, m_iio_jpeg_marker, m_iio_jpeg_comment, m_iio_jpeg_gps, m_iio_dds_bc7, m_iio_ktx2]
 
     // MARK: - libarchive
 
-    static let archive: [ExploitModule] = [
-        ExploitModule(
+    private static let m_arc_iso: ExploitModule = ExploitModule(
             id: "arc.iso",
             titleZh: "ISO9660 Joliet 路径名堆溢出",
             cve: "CVE-2026-112522",
@@ -309,9 +306,9 @@ enum Catalog {
                                      detail: entries.joined(separator: "\n") + tl("\n状态: ") + "\(status)",
                                      evidence: ["ISO \(iso.count) B", tl("累计路径 1024 B")],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_arc_iso_stress: ExploitModule = ExploitModule(
             id: "arc.iso.stress",
             titleZh: "Joliet 路径长度循环",
             cve: "CVE-2026-112522",
@@ -339,13 +336,12 @@ enum Catalog {
                 return ModuleOutcome(headline: tl("32 轮完成，进程存活"),
                                      detail: lines.suffix(10).joined(separator: "\n"),
                                      evidence: [tl("重复越界写 32 次")])
-            }),
-    ]
+            })
+    static let archive: [ExploitModule] = [m_arc_iso, m_arc_iso_stress]
 
     // MARK: - CoreMedia
 
-    static let coreMedia: [ExploitModule] = [
-        ExploitModule(
+    private static let m_cm_rpu: ExploitModule = ExploitModule(
             id: "cm.rpu",
             titleZh: "Dolby Vision RPU 扩展元数据块数组越界",
             cve: "CVE-2026-112688",
@@ -367,9 +363,9 @@ enum Catalog {
                                      detail: tl("OSStatus=") + "\(rc)" + tl("  dmVersion=") + "\(version)" + tl("  dmLevel=") + "\(level)" + tl("\n负载 ") + "\(payload.count)" + tl(" B，block-id 1 × 6（容量 4）"),
                                      evidence: ["RPU \(payload.count) B"],
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_cm_rpu_sweep: ExploitModule = ExploitModule(
             id: "cm.rpu.sweep",
             titleZh: "RPU 块数与块类型扫描",
             cve: "CVE-2026-112688",
@@ -398,13 +394,12 @@ enum Catalog {
                 }
                 ctx.disarm("cm.rpu.sweep", "done")
                 return ModuleOutcome(headline: tl("扫描完成"), detail: lines.joined(separator: "\n"))
-            }),
-    ]
+            })
+    static let coreMedia: [ExploitModule] = [m_cm_rpu, m_cm_rpu_sweep]
 
     // MARK: - Kernel
 
-    static let kernel: [ExploitModule] = [
-        ExploitModule(
+    private static let m_kern_ipc: ExploitModule = ExploitModule(
             id: "kern.ipc",
             titleZh: "ipc_port 请求表索引竞态",
             cve: "CVE-2026-112507 / 112476",
@@ -443,9 +438,9 @@ enum Catalog {
                 return ModuleOutcome(headline: headline,
                                      detail: lines.joined(separator: "\n"),
                                      evidence: baseline.map { "\($0.key): \($0.value)" })
-            }),
+            })
 
-        ExploitModule(
+    private static let m_kern_decmpfs: ExploitModule = ExploitModule(
             id: "kern.decmpfs",
             titleZh: "decmpfs 分块解压欠产出 → 内核堆泄露",
             cve: "CVE-2026-113910",
@@ -475,9 +470,9 @@ enum Catalog {
                 return ModuleOutcome(headline: totalHits > 0 ? tl("发现 ") + "\(totalHits)" + tl(" 个内核指针候选") : tl("未发现内核指针"),
                                      detail: lines.joined(separator: "\n"),
                                      artifacts: [url])
-            }),
+            })
 
-        ExploitModule(
+    private static let m_kern_baseline: ExploitModule = ExploitModule(
             id: "kern.baseline",
             titleZh: "Mach 命名空间基线",
             cve: "—",
@@ -493,13 +488,12 @@ enum Catalog {
                 ctx.disarm("kern.baseline", "collected")
                 return ModuleOutcome(headline: tl("基线已采集"),
                                      detail: base.map { "\($0.key) = \($0.value)" }.sorted().joined(separator: "\n"))
-            }),
-    ]
+            })
+    static let kernel: [ExploitModule] = [m_kern_ipc, m_kern_decmpfs, m_kern_baseline]
 
     // MARK: - Audio
 
-    static let audio: [ExploitModule] = [
-        ExploitModule(
+    private static let m_aud_lc3: ExploitModule = ExploitModule(
             id: "aud.lc3",
             titleZh: "LC3 解码器输入缓冲溢出",
             cve: "CVE-2026-112638",
@@ -520,9 +514,9 @@ enum Catalog {
                 ctx.disarm("aud.lc3", "probe complete")
                 return ModuleOutcome(headline: lc3 == nil ? tl("无授权 — 只能走无线链路") : tl("持有授权"),
                                      detail: lines.joined(separator: "\n"))
-            }),
+            })
 
-        ExploitModule(
+    private static let m_aud_hoa: ExploitModule = ExploitModule(
             id: "aud.hoa",
             titleZh: "HOA 空间音频系数越界读",
             cve: "CVE-2026-112546",
@@ -553,9 +547,9 @@ enum Catalog {
                 ctx.disarm("aud.hoa", "probe complete")
                 return ModuleOutcome(headline: tl("解码器可达性探测完成"),
                                      detail: lines.joined(separator: "\n"))
-            }),
+            })
 
-        ExploitModule(
+    private static let m_aud_haptic: ExploitModule = ExploitModule(
             id: "aud.haptic",
             titleZh: "AVHaptic 自定义音频事件格式校验",
             cve: "CVE-2026-113907",
@@ -570,13 +564,12 @@ enum Catalog {
                 let report = Runners.hapticCustomAudio(frameCount: 4096, declaredBytes: 4)
                 ctx.disarm("aud.haptic", "played")
                 return ModuleOutcome(headline: tl("触觉事件已尝试"), detail: report)
-            }),
-    ]
+            })
+    static let audio: [ExploitModule] = [m_aud_lc3, m_aud_hoa, m_aud_haptic]
 
     // MARK: - Fonts / ModelIO
 
-    static let fonts: [ExploitModule] = [
-        ExploitModule(
+    private static let m_font_cff: ExploitModule = ExploitModule(
             id: "font.cff",
             titleZh: "CFF Type2 charstring 操作数栈溢出",
             cve: "CVE-2026-112683",
@@ -612,9 +605,9 @@ enum Catalog {
                         evidence: ["CFF \(cff.count) B", tl("操作数 300 > 栈容量 48")],
                         artifacts: [url])
                 }
-            }),
+            })
 
-        ExploitModule(
+    private static let m_mdl_usda: ExploitModule = ExploitModule(
             id: "mdl.usda",
             titleZh: "USDA 声明嵌套深度",
             cve: "CVE-2026-112485",
@@ -635,13 +628,12 @@ enum Catalog {
                 return ModuleOutcome(headline: tl("资产载入存活"), detail: detail,
                                      evidence: ["USDA \(usda.count) B", tl("2000 层嵌套")],
                                      artifacts: [url])
-            }),
-    ]
+            })
+    static let fonts: [ExploitModule] = [m_font_cff, m_mdl_usda]
 
     // MARK: - Probes
 
-    static let probes: [ExploitModule] = [
-        ExploitModule(
+    private static let m_probe_hid: ExploitModule = ExploitModule(
             id: "probe.hid",
             titleZh: "IOHIDFamily 预解析数据表索引",
             cve: "CVE-2026-112515",
@@ -662,9 +654,9 @@ enum Catalog {
                     symbols: ["GCController", "GCHIDEventSource", "GCExtendedGamepad"])
                 ctx.disarm("probe.hid", "probe complete")
                 return ModuleOutcome(headline: tl("HID 路径可达性"), detail: iokit + "\n" + gc)
-            }),
+            })
 
-        ExploitModule(
+    private static let m_probe_ane: ExploitModule = ExploitModule(
             id: "probe.ane",
             titleZh: "ANE 内核接口可达性",
             cve: "CVE-2026-112696 / 84494",
@@ -684,9 +676,9 @@ enum Catalog {
                     symbols: ["MLModel", "MLComputePlan"])
                 ctx.disarm("probe.ane", "probe complete")
                 return ModuleOutcome(headline: tl("ANE 用户态入口探测"), detail: r1 + "\n" + r2)
-            }),
+            })
 
-        ExploitModule(
+    private static let m_probe_privset: ExploitModule = ExploitModule(
             id: "probe.privset",
             titleZh: "本进程权限面",
             cve: "—",
@@ -714,8 +706,8 @@ enum Catalog {
                 lines.append(tl("可写根目录: ") + "\(writable.isEmpty ? tl("无") : writable.map { $0.path }.joined(separator: ", "))")
                 ctx.disarm("probe.privset", "collected")
                 return ModuleOutcome(headline: tl("权限面已采集"), detail: lines.joined(separator: "\n"))
-            }),
-    ]
+            })
+    static let probes: [ExploitModule] = [m_probe_hid, m_probe_ane, m_probe_privset]
 }
 
 extension Catalog {

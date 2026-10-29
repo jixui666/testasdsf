@@ -143,9 +143,8 @@ enum MachOImportScan {
 
 extension Catalog {
 
-    static let formatProbes: [ExploitModule] = [
 
-        ExploitModule(
+    private static let m_cal_format: ExploitModule = ExploitModule(
             id: "cal.format",
             titleZh: "日历解压的归档格式面（libarchive 导入表）",
             cve: "—",
@@ -235,6 +234,6 @@ extension Catalog {
                                         tl("引用存在 ≠ 嗅探启用，结论分级记录"),
                                      ],
                                      artifacts: [url])
-            }),
-    ]
+            })
+    static let formatProbes: [ExploitModule] = [m_cal_format]
 }

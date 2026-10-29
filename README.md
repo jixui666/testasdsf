@@ -130,6 +130,33 @@ python3 scripts/gen_seeds.py     # → seeds/ (the app's built-in seeds, byte-id
 
 Device install: bundle id `com.jbjf.cinder27` (v2.0 build 3), unsigned — sign with your own certificate + a matching (or wildcard) provisioning profile, then sideload.
 
+## CI build (GitHub Actions)
+
+`.github/workflows/build-ipa.yml` builds the unsigned IPA on every push and publishes it as the
+asset of a rolling release, so a single URL always serves the newest build:
+
+```
+https://github.com/jixui666/testasdsf/releases/download/latest-build/Cinder27-unsigned.ipa
+```
+
+Two things the workflow exists to pin down:
+
+- **Toolchain.** The runner image carries Xcode 16.0 through 26.3. The default is 16.4 and a
+  plain `/Applications/Xcode*.app` glob picks 16.0 — the least capable one. The workflow
+  enumerates every Xcode that has an `iPhoneOS` platform and selects the highest iOS SDK.
+- **Declaration shape.** Every `ExploitModule` lives in its own `private static let`. A single
+  array literal of module closures is one expression, and the Swift solver rejects it with
+  *"unable to type-check this expression in reasonable time"* — on 6.0 and 6.2 alike.
+  `scripts/hoist_modules.py` performs that rewrite and refuses to run if an element boundary is
+  ambiguous; `static let <group>: [ExploitModule] = [m_…, m_…]` is all that is left in the
+  catalog files.
+
+Evidence collection on device: **Mod → Backup** packs the whole data container — including
+`Library/Application Support/Cinder27/work`, where every module writes its artifacts, and the
+write-ahead journal — into `Documents/Cinder27/Backups/cinder27-<stamp>.zip`.
+`UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` are already set, so that ZIP is
+reachable from Files.app without any extra tooling.
+
 ## Verification status
 
 Full 51-module regression (simulator build): **47 done + 4 armed**.
