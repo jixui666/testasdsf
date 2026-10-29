@@ -1,0 +1,119 @@
+name: build-ipa
+
+# Every push builds a fresh unsigned arm64 IPA and keeps a stable download URL at:
+#   https://github.com/<owner>/<repo>/releases/download/latest-build/Cinder27-unsigned.ipa
+# The IPA is deliberately unsigned — sign it with your own certificate plus a matching
+# (or wildcard) provisioning profile before sideloading.
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      # A runner can ship several Xcodes; only one of them has to have the device SDK.
+      # Picking explicitly beats trusting whatever is selected by default.
+      - name: Select an Xcode with the iPhoneOS SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          found=""
+          for candidate in /Applications/Xcode*.app; do
+            [ -d "$candidate/Contents/Developer/Platforms/iPhoneOS.platform" ] || continue
+            sudo xcode-select -s "$candidate/Contents/Developer"
+            found="$candidate"
+            break
+          done
+          if [ -z "$found" ]; then
+            echo "no Xcode with an iPhoneOS platform found" >&2
+            ls -1 /Applications | sed 's/^/  /' >&2
+            exit 1
+          fi
+          echo "using: $found"
+          xcodebuild -version
+          echo "sdk: $(xcrun --sdk iphoneos --show-sdk-version)"
+          xcrun --sdk iphoneos --show-sdk-path
+          swiftc --version
+
+      - name: Build unsigned IPA
+        shell: bash
+        run: bash scripts/build-device.sh
+
+      - name: Verify the IPA
+        shell: bash
+        run: |
+          set -euo pipefail
+          IPA=dist/Cinder27-unsigned.ipa
+          test -f "$IPA"
+          python3 - "$IPA" <<'PY'
+          import sys, zipfile
+
+          path = sys.argv[1]
+          with zipfile.ZipFile(path) as z:
+              names = z.namelist()
+              required = [
+                  "Payload/Cinder27.app/Cinder27",
+                  "Payload/Cinder27.app/Info.plist",
+                  "Payload/Cinder27.app/PkgInfo",
+              ]
+              missing = [n for n in required if n not in names]
+              if missing:
+                  raise SystemExit("IPA is missing entries: %s" % missing)
+              info = z.read("Payload/Cinder27.app/Info.plist")
+              binary = z.read("Payload/Cinder27.app/Cinder27")
+          print("entries:", len(names))
+          print("binary:", len(binary), "bytes")
+          print("CFBundleIdentifier in Info.plist:", b"com.jbjf.cinder27" in info)
+          if not (b"com.jbjf.cinder27" in info):
+              raise SystemExit("Info.plist does not carry the expected bundle id")
+          if binary[0:4] != b"\xcf\xfa\xed\xfe":
+              raise SystemExit("main binary is not a thin arm64 Mach-O")
+          PY
+
+      - name: Report artifact size
+        run: ls -lh dist/
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cinder27-unsigned-ipa
+          path: dist/Cinder27-unsigned.ipa
+          if-no-files-found: error
+          retention-days: 90
+
+      # A single rolling release gives one stable URL that always serves the newest build —
+      # far easier to grab from a phone than an artifact that needs a signed-in browser.
+      - name: Publish rolling release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          name: Cinder27 — latest build
+          body: |
+            Unsigned arm64 IPA.
+
+            - built from `${{ github.sha }}`
+            - run #${{ github.run_number }}, ${{ runner.os }}
+            - deployment target iOS 17.0
+
+            Deliberately unsigned: sign it with your own certificate and a matching
+            provisioning profile before sideloading.
+          files: dist/Cinder27-unsigned.ipa
+          fail_on_unmatched_files: true
