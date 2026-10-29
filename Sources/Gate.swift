@@ -8,8 +8,14 @@ import SwiftUI
 
 enum VersionGate {
     enum Result {
-        case supported(major: Int, minor: Int, build: String)
-        case unsupported(major: Int, minor: Int, build: String)
+        case supported(major: Int, minor: Int, patch: Int, build: String)
+        case unsupported(major: Int, minor: Int, patch: Int, build: String)
+    }
+
+    /// "27.0" for a zero patch, "27.0.1" when there is one. The patch is part of the
+    /// answer — a 27.0.1 device that reports "27.0" is a false reading.
+    static func versionString(major: Int, minor: Int, patch: Int) -> String {
+        patch != 0 ? "\(major).\(minor).\(patch)" : "\(major).\(minor)"
     }
 
     static func evaluate() -> Result {
@@ -33,12 +39,12 @@ enum VersionGate {
             supported = false                      // 27.2+ / 28+ — patched
         }
         // An explicit override exists for research builds where the version string lies.
-        if ProcessInfo.processInfo.environment["CINDER27_FORCE_GATE"] == "1" { 
-            return .supported(major: v.majorVersion, minor: v.minorVersion, build: build)
+        if ProcessInfo.processInfo.environment["CINDER27_FORCE_GATE"] == "1" {
+            return .supported(major: v.majorVersion, minor: v.minorVersion, patch: v.patchVersion, build: build)
         }
         return supported
-            ? .supported(major: v.majorVersion, minor: v.minorVersion, build: build)
-            : .unsupported(major: v.majorVersion, minor: v.minorVersion, build: build)
+            ? .supported(major: v.majorVersion, minor: v.minorVersion, patch: v.patchVersion, build: build)
+            : .unsupported(major: v.majorVersion, minor: v.minorVersion, patch: v.patchVersion, build: build)
     }
 
     static var isSupported: Bool {
@@ -53,17 +59,17 @@ struct GateView: View {
 
     enum Phase {
         case checking
-        case supported(major: Int, minor: Int, build: String)
-        case unsupported(major: Int, minor: Int, build: String)
+        case supported(major: Int, minor: Int, patch: Int, build: String)
+        case unsupported(major: Int, minor: Int, patch: Int, build: String)
     }
 
     var body: some View {
         ZStack {
             T.bg.ignoresSafeArea()
 
-            if entered, case let .supported(major, minor, build) = phase {
+            if entered, case let .supported(major, minor, patch, build) = phase {
                 RootView()
-                    .environment(\.gateInfo, GateInfo(major: major, minor: minor, build: build))
+                    .environment(\.gateInfo, GateInfo(major: major, minor: minor, patch: patch, build: build))
                     .transition(.opacity)
             } else {
                 content
@@ -106,7 +112,7 @@ struct GateView: View {
                 }
                 .padding(.top, 20)
 
-            case let .supported(major, minor, build):
+            case let .supported(major, minor, patch, build):
                 Card {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 8) {
@@ -117,7 +123,7 @@ struct GateView: View {
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                                 .foregroundColor(T.good)
                         }
-                        KeyValueRow(key: t("gate.detected"), value: "iOS \(major).\(minor)")
+                        KeyValueRow(key: t("gate.detected"), value: VersionGate.versionString(major: major, minor: minor, patch: patch))
                         KeyValueRow(key: t("gate.build"), value: build)
                         KeyValueRow(key: t("gate.required"), value: "17.0 – 27.1")
                     }
@@ -129,7 +135,7 @@ struct GateView: View {
                 }
                 .padding(.horizontal, 24)
 
-            case let .unsupported(major, minor, build):
+            case let .unsupported(major, minor, patch, build):
                 Card {
                     VStack(alignment: .leading, spacing: 10) {
                         HStack(spacing: 8) {
@@ -140,7 +146,7 @@ struct GateView: View {
                                 .font(.system(size: 15, weight: .semibold, design: .rounded))
                                 .foregroundColor(T.bad)
                         }
-                        KeyValueRow(key: t("gate.detected"), value: "iOS \(major).\(minor)", tint: T.bad)
+                        KeyValueRow(key: t("gate.detected"), value: VersionGate.versionString(major: major, minor: minor, patch: patch), tint: T.bad)
                         KeyValueRow(key: t("gate.build"), value: build)
                         KeyValueRow(key: t("gate.required"), value: "17.0 – 27.1")
                         Divider().overlay(T.stroke)
@@ -170,8 +176,8 @@ struct GateView: View {
     private var phaseText: String {
         switch phase {
         case .checking: return "checking"
-        case let .supported(m, n, _): return "ok-\(m).\(n)"
-        case let .unsupported(m, n, _): return "no-\(m).\(n)"
+        case let .supported(m, n, p, _): return "ok-\(m).\(n).\(p)"
+        case let .unsupported(m, n, p, _): return "no-\(m).\(n).\(p)"
         }
     }
 
@@ -179,10 +185,10 @@ struct GateView: View {
         phase = .checking
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
             switch VersionGate.evaluate() {
-            case let .supported(major, minor, build):
-                phase = .supported(major: major, minor: minor, build: build)
-            case let .unsupported(major, minor, build):
-                phase = .unsupported(major: major, minor: minor, build: build)
+            case let .supported(major, minor, patch, build):
+                phase = .supported(major: major, minor: minor, patch: patch, build: build)
+            case let .unsupported(major, minor, patch, build):
+                phase = .unsupported(major: major, minor: minor, patch: patch, build: build)
             }
         }
     }
@@ -191,11 +197,15 @@ struct GateView: View {
 struct GateInfo {
     let major: Int
     let minor: Int
+    let patch: Int
     let build: String
+
+    /// The full detected version, patch included — what the gate actually read.
+    var osVersion: String { VersionGate.versionString(major: major, minor: minor, patch: patch) }
 }
 
 private struct GateInfoKey: EnvironmentKey {
-    static let defaultValue = GateInfo(major: 0, minor: 0, build: "—")
+    static let defaultValue = GateInfo(major: 0, minor: 0, patch: 0, build: "—")
 }
 
 extension EnvironmentValues {

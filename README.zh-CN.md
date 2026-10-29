@@ -10,11 +10,11 @@ iOS 17.0–27.1 漏洞验证与设备修改工具链，**51 个模块**。主靶
 
 | 区块 | 内容 |
 |---|---|
-| `CVE-2026-XXXX/`（31 个） | 每个 CVE 一个文件夹，POC 本体在文件夹内：`.py` 种子构建器（可独立运行）和/或 `.swift` 种子构造 + 触发闭包（可独立 typecheck） |
+| `CVE-2026-XXXX/`（31 个） | 每个 CVE 一个文件夹，POC 本体在文件夹内：`.py` 种子构建器（可独立运行）、`.swift` 种子构造 + 触发闭包（可独立 typecheck），以及 `.c` 双子——种子 + 触发 + `main()` 自包含，在 macOS arm64 上独立编译运行 |
 | `<模块名>/`（11 个） | 无 CVE 编号的模块——工具、探针、基线、沙盒原语——按模块 id 命名，同样一文件夹一文件 |
 | `Sources/` `scripts/` `Resources/` `Info.plist` | Cinder27 app 主体（验证台本体，构建见下） |
 
-共 42 个 Swift POC 文件（全部通过独立 typecheck）+ 5 个 Python 种子构建器（产物与 app 内置种子逐字节一致）。
+共 42 个 Swift POC 文件（全部通过独立 typecheck）+ 5 个 Python 种子构建器（产物与 app 内置种子逐字节一致）+ 31 个 C POC 文件（macOS arm64 上 `clang -O2 -Wall` 零警告编译通过，各自带一份记录在案的 oracle）。
 
 ## POC 索引 — 31 个 CVE 文件夹
 
@@ -22,37 +22,37 @@ iOS 17.0–27.1 漏洞验证与设备修改工具链，**51 个模块**。主靶
 
 | CVE | 模块 | 组件 | 原语 | 触达 | 标题 | 文件 |
 |---|---|---|---|---|---|---|
-| [CVE-2026-112415](CVE-2026-112415/) | `vid.hevc` | AVD.videodecoder 插件 | OOB 读 | 系统进程 | MVHEVC 层 ID 越界 | `CVE-2026-112415.swift` |
-| [CVE-2026-112416](CVE-2026-112416/) | `vid.avc` | AVD.videodecoder 插件（非 kext） | OOB 写 | 系统进程 | AVC 切片数量上限缺失 | `CVE-2026-112416.swift` |
-| [CVE-2026-112485](CVE-2026-112485/) | `mdl.usda` | Model I/O · libusd_ms | OOB 读 | 进程内 | USDA 声明嵌套深度 | `CVE-2026-112485.py` · `CVE-2026-112485.swift` |
-| [CVE-2026-112488](CVE-2026-112488/) | `iio.tiff.direntry` | ImageIO · TIFFReadDirEntry*Array | OOB 写 | 进程内 | TIFF 目录项分配 32 位截断 | `CVE-2026-112488.swift` |
-| [CVE-2026-112507 / 112476](CVE-2026-112507/) | `kern.ipc` | XNU · ipc_port.c 请求表消费方 | UAF | 内核 | ipc_port 请求表索引竞态 | `CVE-2026-112507.swift` |
-| [CVE-2026-112515](CVE-2026-112515/) | `probe.hid` | IOHIDFamily · caps 表查找 | OOB 读 | 外设 | IOHIDFamily 预解析数据表索引 | `CVE-2026-112515.swift` |
-| [CVE-2026-112522](CVE-2026-112522/) | `arc.iso`, `arc.iso.stress`, `arc.cab` | libarchive · build_pathname_utf16be | OOB 写 | 进程内 | ISO9660 Joliet 路径名堆溢出 | `CVE-2026-112522.py` · `CVE-2026-112522.swift` |
-| [CVE-2026-112546](CVE-2026-112546/) | `aud.hoa` | AudioCodecs · APACHOADecoder::Initialize | OOB 读 | 系统进程 | HOA 空间音频系数越界读 | `CVE-2026-112546.swift` |
-| [CVE-2026-112554](CVE-2026-112554/) | `kext.gpt` | IOStorageFamily | OOB 读 | 内核 | GPT 分区名扫描 72 字节内核堆越界读 | `CVE-2026-112554.swift` |
-| [CVE-2026-112571](CVE-2026-112571/) | `iio.jpeg.comment` | ImageIO · ReadUserComment | 信息泄露 | 进程内 | EXIF UserComment 短读 → 元数据泄露 | `CVE-2026-112571.swift` |
-| [CVE-2026-112610](CVE-2026-112610/) | `cg.cmap` | CoreGraphics · _cmap_convert | OOB 写 | 进程内 | CMap /UseCMap 递归越界写（负结果探针） | `CVE-2026-112610.swift` |
-| [CVE-2026-112611](CVE-2026-112611/) | `cg.shading`, `cg.shading.sweep` | CoreGraphics · _cg_shading_type5_draw | OOB 写 | 进程内 | Type-5 阴影栈溢出（值可控 OOB 写） | `CVE-2026-112611.swift` |
-| [CVE-2026-112619](CVE-2026-112619/) | `cal.unzip` | CalendarFoundation · _UnzipArchiveWithLimits | OOB 写 | 系统进程 | 日历附件解压容器逃逸 | `CVE-2026-112619.swift` |
-| [CVE-2026-112625](CVE-2026-112625/) | `iio.ktx2`, `iio.pvr` | ImageIO · KTX2ReadPlugin | 整数溢出 | 进程内 | KTX2 维度/层级尺寸运算 | `CVE-2026-112625.py` · `CVE-2026-112625.swift` |
-| [CVE-2026-112627](CVE-2026-112627/) | `iio.dds.bc7`, `iio.appx` | ImageIO · BCReadPlugin::initialize | OOB 读 | 进程内 | BC7 纹理 mip 截断 | `CVE-2026-112627.swift` |
-| [CVE-2026-112629](CVE-2026-112629/) | `iio.jpeg.gps` | ImageIO · GPSCopy::processData | OOB 读 | 进程内 | GPS IFD 值偏移越界 | `CVE-2026-112629.swift` |
-| [CVE-2026-112630](CVE-2026-112630/) | `iio.apng.fctl` | ImageIO · IIO_Reader_PNG::getImageCount | 信息泄露 | 进程内 | APNG fcTL 截断 → 栈上未初始化帧几何 | `CVE-2026-112630.swift` |
-| [CVE-2026-112632](CVE-2026-112632/) | `iio.tiff.trunc` | ImageIO · decodeStripChunky | 信息泄露 | 进程内 | TIFF 截断条带 → 未初始化堆进像素 | `CVE-2026-112632.swift` |
-| [CVE-2026-112633 / 112614](CVE-2026-112633/) | `iio.tiff.planar`, `iio.pdf.raster` | ImageIO · decodeStripPlanar | OOB 写 | 进程内 | TIFF planar 散写越界 | `CVE-2026-112633.swift` |
-| [CVE-2026-112634](CVE-2026-112634/) | `iio.jpeg.marker` | ImageIO · _JPEGFile::processData | OOB 读 | 进程内 | JPEG 标记长度越界 | `CVE-2026-112634.swift` |
-| [CVE-2026-112638](CVE-2026-112638/) | `aud.lc3` | AudioCodecs · ACLC3Decoder::AppendInputData | OOB 写 | 权限受限 | LC3 解码器输入缓冲溢出 | `CVE-2026-112638.swift` |
-| [CVE-2026-112646](CVE-2026-112646/) | `sb.stash` | SpringBoard · SBHomeScreenService | OOB 写 | 系统进程 | SpringBoard 布局名 stash 校验 | `CVE-2026-112646.swift` |
-| [CVE-2026-112656](CVE-2026-112656/) | `font.gdef` | CoreText · GetLigatureCaretPositionsForGlyph | OOB 读 | 进程内 | GDEFLigatureCaret 追链越界读 | `CVE-2026-112656.swift` |
-| [CVE-2026-112683](CVE-2026-112683/) | `font.cff` | FontParser · charstring 解释器 | OOB 写 | 进程内 | CFF Type2 charstring 操作数栈溢出 | `CVE-2026-112683.py` · `CVE-2026-112683.swift` |
-| [CVE-2026-112688](CVE-2026-112688/) | `cm.rpu`, `cm.rpu.sweep` | CoreMedia · hevcbridgeParseVdrDmDataPayloadExMetadataBlocks | OOB 写 | 系统进程 | Dolby Vision RPU 扩展元数据块数组越界 | `CVE-2026-112688.swift` |
-| [CVE-2026-112696 / 84494](CVE-2026-112696/) | `probe.ane` | AppleH16ANEInterface | OOB 写 | 内核 | ANE 内核接口可达性 | `CVE-2026-112696.swift` |
-| [CVE-2026-112706](CVE-2026-112706/) | `cm.fdleak`, `cm.fdleak.boundary` | CoreMedia · mediaplaybackd.bytestream.xpc | 信息泄露 | 系统进程 | CoreMedia bytestream XPC 跨沙盒文件描述符获取 | `CVE-2026-112706.swift` |
-| [CVE-2026-113907](CVE-2026-113907/) | `aud.haptic`, `aud.immersive` | AudioToolbox · AVHapticServerInstance | OOB 写 | 系统进程 | AVHaptic 自定义音频事件格式校验 | `CVE-2026-113907.swift` |
-| [CVE-2026-113910](CVE-2026-113910/) | `kern.decmpfs` | XNU · AppleFSCompressionTypeZlib | 信息泄露 | 内核 | decmpfs 分块解压欠产出 → 内核堆泄露 | `CVE-2026-113910.swift` |
-| [CVE-2026-113912 / 86972](CVE-2026-113912/) | `aud.drc` | AudioCodecs · mpddrc::UniDrcSelection | OOB 读 | 系统进程 | MPEG-D DRC 下混矩阵系数校验 | `CVE-2026-113912.swift` |
-| [CVE-2026-65385](CVE-2026-65385/) | `kext.iohid` | IOKit.framework · IOHIDEventAppendEvent | OOB 写 | 内核 | IOKit 事件短堆固定偏移写 | `CVE-2026-65385.swift` |
+| [CVE-2026-112415](CVE-2026-112415/) | `vid.hevc` | AVD.videodecoder 插件 | OOB 读 | 系统进程 | MVHEVC 层 ID 越界 | `CVE-2026-112415.swift` · `CVE-2026-112415.c` |
+| [CVE-2026-112416](CVE-2026-112416/) | `vid.avc` | AVD.videodecoder 插件（非 kext） | OOB 写 | 系统进程 | AVC 切片数量上限缺失 | `CVE-2026-112416.swift` · `CVE-2026-112416.c` |
+| [CVE-2026-112485](CVE-2026-112485/) | `mdl.usda` | Model I/O · libusd_ms | OOB 读 | 进程内 | USDA 声明嵌套深度 | `CVE-2026-112485.py` · `CVE-2026-112485.swift` · `CVE-2026-112485.c` |
+| [CVE-2026-112488](CVE-2026-112488/) | `iio.tiff.direntry` | ImageIO · TIFFReadDirEntry*Array | OOB 写 | 进程内 | TIFF 目录项分配 32 位截断 | `CVE-2026-112488.swift` · `CVE-2026-112488.c` |
+| [CVE-2026-112507 / 112476](CVE-2026-112507/) | `kern.ipc` | XNU · ipc_port.c 请求表消费方 | UAF | 内核 | ipc_port 请求表索引竞态 | `CVE-2026-112507.swift` · `CVE-2026-112507.c` |
+| [CVE-2026-112515](CVE-2026-112515/) | `probe.hid` | IOHIDFamily · caps 表查找 | OOB 读 | 外设 | IOHIDFamily 预解析数据表索引 | `CVE-2026-112515.swift` · `CVE-2026-112515.c` |
+| [CVE-2026-112522](CVE-2026-112522/) | `arc.iso`, `arc.iso.stress`, `arc.cab` | libarchive · build_pathname_utf16be | OOB 写 | 进程内 | ISO9660 Joliet 路径名堆溢出 | `CVE-2026-112522.py` · `CVE-2026-112522.swift` · `CVE-2026-112522.c` |
+| [CVE-2026-112546](CVE-2026-112546/) | `aud.hoa` | AudioCodecs · APACHOADecoder::Initialize | OOB 读 | 系统进程 | HOA 空间音频系数越界读 | `CVE-2026-112546.swift` · `CVE-2026-112546.c` |
+| [CVE-2026-112554](CVE-2026-112554/) | `kext.gpt` | IOStorageFamily | OOB 读 | 内核 | GPT 分区名扫描 72 字节内核堆越界读 | `CVE-2026-112554.swift` · `CVE-2026-112554.c` |
+| [CVE-2026-112571](CVE-2026-112571/) | `iio.jpeg.comment` | ImageIO · ReadUserComment | 信息泄露 | 进程内 | EXIF UserComment 短读 → 元数据泄露 | `CVE-2026-112571.swift` · `CVE-2026-112571.c` |
+| [CVE-2026-112610](CVE-2026-112610/) | `cg.cmap` | CoreGraphics · _cmap_convert | OOB 写 | 进程内 | CMap /UseCMap 递归越界写（负结果探针） | `CVE-2026-112610.swift` · `CVE-2026-112610.c` |
+| [CVE-2026-112611](CVE-2026-112611/) | `cg.shading`, `cg.shading.sweep` | CoreGraphics · _cg_shading_type5_draw | OOB 写 | 进程内 | Type-5 阴影栈溢出（值可控 OOB 写） | `CVE-2026-112611.swift` · `CVE-2026-112611.c` |
+| [CVE-2026-112619](CVE-2026-112619/) | `cal.unzip` | CalendarFoundation · _UnzipArchiveWithLimits | OOB 写 | 系统进程 | 日历附件解压容器逃逸 | `CVE-2026-112619.swift` · `CVE-2026-112619.c` |
+| [CVE-2026-112625](CVE-2026-112625/) | `iio.ktx2`, `iio.pvr` | ImageIO · KTX2ReadPlugin | 整数溢出 | 进程内 | KTX2 维度/层级尺寸运算 | `CVE-2026-112625.py` · `CVE-2026-112625.swift` · `CVE-2026-112625.c` |
+| [CVE-2026-112627](CVE-2026-112627/) | `iio.dds.bc7`, `iio.appx` | ImageIO · BCReadPlugin::initialize | OOB 读 | 进程内 | BC7 纹理 mip 截断 | `CVE-2026-112627.swift` · `CVE-2026-112627.c` |
+| [CVE-2026-112629](CVE-2026-112629/) | `iio.jpeg.gps` | ImageIO · GPSCopy::processData | OOB 读 | 进程内 | GPS IFD 值偏移越界 | `CVE-2026-112629.swift` · `CVE-2026-112629.c` |
+| [CVE-2026-112630](CVE-2026-112630/) | `iio.apng.fctl` | ImageIO · IIO_Reader_PNG::getImageCount | 信息泄露 | 进程内 | APNG fcTL 截断 → 栈上未初始化帧几何 | `CVE-2026-112630.swift` · `CVE-2026-112630.c` |
+| [CVE-2026-112632](CVE-2026-112632/) | `iio.tiff.trunc` | ImageIO · decodeStripChunky | 信息泄露 | 进程内 | TIFF 截断条带 → 未初始化堆进像素 | `CVE-2026-112632.swift` · `CVE-2026-112632.c` |
+| [CVE-2026-112633 / 112614](CVE-2026-112633/) | `iio.tiff.planar`, `iio.pdf.raster` | ImageIO · decodeStripPlanar | OOB 写 | 进程内 | TIFF planar 散写越界 | `CVE-2026-112633.swift` · `CVE-2026-112633.c` |
+| [CVE-2026-112634](CVE-2026-112634/) | `iio.jpeg.marker` | ImageIO · _JPEGFile::processData | OOB 读 | 进程内 | JPEG 标记长度越界 | `CVE-2026-112634.swift` · `CVE-2026-112634.c` |
+| [CVE-2026-112638](CVE-2026-112638/) | `aud.lc3` | AudioCodecs · ACLC3Decoder::AppendInputData | OOB 写 | 权限受限 | LC3 解码器输入缓冲溢出 | `CVE-2026-112638.swift` · `CVE-2026-112638.c` |
+| [CVE-2026-112646](CVE-2026-112646/) | `sb.stash` | SpringBoard · SBHomeScreenService | OOB 写 | 系统进程 | SpringBoard 布局名 stash 校验 | `CVE-2026-112646.swift` · `CVE-2026-112646.c` |
+| [CVE-2026-112656](CVE-2026-112656/) | `font.gdef` | CoreText · GetLigatureCaretPositionsForGlyph | OOB 读 | 进程内 | GDEFLigatureCaret 追链越界读 | `CVE-2026-112656.swift` · `CVE-2026-112656.c` |
+| [CVE-2026-112683](CVE-2026-112683/) | `font.cff` | FontParser · charstring 解释器 | OOB 写 | 进程内 | CFF Type2 charstring 操作数栈溢出 | `CVE-2026-112683.py` · `CVE-2026-112683.swift` · `CVE-2026-112683.c` |
+| [CVE-2026-112688](CVE-2026-112688/) | `cm.rpu`, `cm.rpu.sweep` | CoreMedia · hevcbridgeParseVdrDmDataPayloadExMetadataBlocks | OOB 写 | 系统进程 | Dolby Vision RPU 扩展元数据块数组越界 | `CVE-2026-112688.swift` · `CVE-2026-112688.c` |
+| [CVE-2026-112696 / 84494](CVE-2026-112696/) | `probe.ane` | AppleH16ANEInterface | OOB 写 | 内核 | ANE 内核接口可达性 | `CVE-2026-112696.swift` · `CVE-2026-112696.c` |
+| [CVE-2026-112706](CVE-2026-112706/) | `cm.fdleak`, `cm.fdleak.boundary` | CoreMedia · mediaplaybackd.bytestream.xpc | 信息泄露 | 系统进程 | CoreMedia bytestream XPC 跨沙盒文件描述符获取 | `CVE-2026-112706.swift` · `CVE-2026-112706.c` |
+| [CVE-2026-113907](CVE-2026-113907/) | `aud.haptic`, `aud.immersive` | AudioToolbox · AVHapticServerInstance | OOB 写 | 系统进程 | AVHaptic 自定义音频事件格式校验 | `CVE-2026-113907.swift` · `CVE-2026-113907.c` |
+| [CVE-2026-113910](CVE-2026-113910/) | `kern.decmpfs` | XNU · AppleFSCompressionTypeZlib | 信息泄露 | 内核 | decmpfs 分块解压欠产出 → 内核堆泄露 | `CVE-2026-113910.swift` · `CVE-2026-113910.c` |
+| [CVE-2026-113912 / 86972](CVE-2026-113912/) | `aud.drc` | AudioCodecs · mpddrc::UniDrcSelection | OOB 读 | 系统进程 | MPEG-D DRC 下混矩阵系数校验 | `CVE-2026-113912.swift` · `CVE-2026-113912.c` |
+| [CVE-2026-65385](CVE-2026-65385/) | `kext.iohid` | IOKit.framework · IOHIDEventAppendEvent | OOB 写 | 内核 | IOKit 事件短堆固定偏移写 | `CVE-2026-65385.swift` · `CVE-2026-65385.c` |
 
 ## 无 CVE 模块 — 11 个
 
@@ -82,6 +82,18 @@ iOS 17.0–27.1 漏洞验证与设备修改工具链，**51 个模块**。主靶
 
 种子组的 `.py` 是同一构建器的 Python 原文（来自 `scripts/gen_seeds.py`），带 `__main__` 写盘入口，可直接运行。
 
+## C POC 文件（.c）的结构
+
+每个 CVE 文件夹还带一个 C 双子——同一验证的纯 C 实现，直接在 macOS arm64 主机上编译运行（无 Swift 运行时、不依赖 app）：
+
+1. **头部注释** —— 模块 · 框架 · 漏洞函数 · CVE，一行漏洞类别，`C twin of the Swift POC` 标注，`Build:` / `Run:` 行；多变体模块注明哪个变体在 `main()` 里跑
+2. **种子构造** —— 与 Swift 构建器相同的载荷文法，纯手写：位写入器、字节缓冲、结构体发射
+3. **触发** —— 漏洞入口本身。公开框架直接链接（`VTDecompressionSessionCreate`、`AudioConverterNew`、`CGFontCreateWithDataProvider`）；私有符号运行时 `dlsym` 解析（`CMGetDMVersionLevelFromRPU`、`Fig*` XPC 家族、`IOHIDEvent*`）
+4. **预言机** —— 打印到 stdout：OSStatus 码、入口拒绝回执、XPC 回复类型、信号/崩溃结果
+5. **`main()`** —— Swift 版可参数化的地方同样参数化（深度、块数、路径）；种子文件写入工作目录备查
+
+31 个全部 `clang -O2 -Wall` 零警告编译通过，且都在本机跑出记录在案的 oracle。
+
 ## 运行
 
 ```bash
@@ -98,6 +110,12 @@ xcrun swiftc -parse-as-library -swift-version 5 -sdk "$(xcrun --sdk macosx --sho
 
 # 完整触发（解码、竞态、崩溃 oracle）在 app 验证台内执行
 bash scripts/build-sim.sh        # → build/sim/Cinder27.app 并安装到已启动的模拟器
+
+# C 双子 —— 独立编译运行（macOS arm64）
+clang -O2 -Wall -o /tmp/c112522 CVE-2026-112522/CVE-2026-112522.c    # 纯 C，无框架依赖
+/tmp/c112522                                                        # → SIGTRAP：2 字节越界写
+clang -O2 -Wall -o /tmp/c112706 CVE-2026-112706/CVE-2026-112706.c -fblocks -framework CoreFoundation
+/tmp/c112706                                                        # → FigXPC 握手，'Connection invalid'
 ```
 
 ## 构建验证台 app
@@ -110,13 +128,15 @@ bash scripts/build-sim.sh        # → build/sim/Cinder27.app（arm64 模拟器�
 python3 scripts/gen_seeds.py     # → seeds/（app 内置种子，与 .py POC 产物逐字节一致）
 ```
 
-设备安装：bundle id `com.jbjf.cinder27`（v1.0 build 2），未签名——用自有证书 + 匹配（或通配符）描述文件签名后侧载。
+设备安装：bundle id `com.jbjf.cinder27`（v2.0 build 3），未签名——用自有证书 + 匹配（或通配符）描述文件签名后侧载。
 
 ## 验证状态
 
 51 模块全量回归（模拟器构建）：**47 done + 4 armed**。
 
-armed 不是超时——是**死亡 oracle 命中**：负载触发进程崩溃，journal 停在 armed、进程消失。cm.rpu / cm.rpu.sweep 的崩溃栈落在 `CMGetDMVersionLevelFromRPU` 内 SIGSEGV——CVE-2026-112688 的结构体外写在模拟器构建上真实命中。cg.shading / cg.shading.sweep 为 R=136 长溢出阶梯扫描，按设计在同一进程内推进到致命级。
+armed 不是超时——是**死亡 oracle 命中**：负载触发进程崩溃，journal 停在 armed、进程消失。cm.rpu / cm.rpu.sweep 的崩溃栈落在 `CMGetDMVersionLevelFromRPU` 内 SIGSEGV；C 双子钉死了机制——iOS 面是 4 参 `(bytes, count, u32*, u32*)` 形态，而 macOS 导出的是单 `CFDataRef`（反汇编验证：arg0 先走 CFRetain 式 GOT 调用才进 `FigHEVCBridge_GetRPUMetadata`），所以 Swift 的 4 参调用在模拟器的 CoreMedia 上死在入口。cg.shading / cg.shading.sweep 为 R=136 长溢出阶梯扫描，按设计在同一进程内推进到致命级。
+
+31 个 C 双子全部零警告编译通过（`clang -O2 -Wall`，macOS arm64），且都在开发机上跑出记录在案的 oracle：112522 触发 SIGTRAP（2 字节越界写被 malloc 抓住）、112507 活过全程环竞态并带回 -300 / invalid-destination 回执、112706 回应 'Connection invalid'（macOS 无 mediaplaybackd bytestream XPC——静默服务判定）、112485 拿到 PEGTL 深度回执（`Expected } at 'def Xform "n1999"'`）、113910 读回纯 0x41（macOS 上带数据的文件不走 decmpfs）。其余都在入口层被拒——与 app 验证台同形回执。
 
 ## 模块语义
 

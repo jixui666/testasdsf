@@ -317,13 +317,20 @@ enum Runners {
                                   bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
             throw LabError(message: tl("上下文创建失败"))
         }
-        // drawing forces the charstring interpreter to run
-        for g in 1..<min(Int(glyphCount), 8) {
-            var glyph = CGGlyph(g)
-            var position = CGPoint(x: 20, y: CGFloat(40 * (g + 1)))
-            CTFontDrawGlyphs(ctFont, &glyph, &position, 1, ctx)
+        // drawing forces the charstring interpreter to run.
+        // glyphCount == 0 is a real malformed-font shape (the POCs feed exactly those),
+        // and `1..<0` would trap — guard the range instead of assuming the count.
+        let upper = min(Int(glyphCount), 8)
+        var drawn = 0
+        if upper > 1 {
+            for g in 1..<upper {
+                var glyph = CGGlyph(g)
+                var position = CGPoint(x: 20, y: CGFloat(40 * (g + 1)))
+                CTFontDrawGlyphs(ctFont, &glyph, &position, 1, ctx)
+                drawn += 1
+            }
         }
-        return tl("字体加载成功 name=") + "\(name)" + tl(" glyphs=") + "\(glyphCount)" + tl("，已绘制 ") + "\(min(Int(glyphCount), 8) - 1)" + tl(" 个字形")
+        return tl("字体加载成功 name=") + "\(name)" + tl(" glyphs=") + "\(glyphCount)" + tl("，已绘制 ") + "\(drawn)" + tl(" 个字形")
     }
 
     // ---- Model I/O (libusd_ms)

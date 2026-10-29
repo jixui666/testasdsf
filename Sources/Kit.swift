@@ -293,6 +293,7 @@ struct DeviceModel {
             "iPhone19,2": "iPhone 18 Pro Max",
             "iPhone19,3": "iPhone 18",
             "iPhone19,4": "iPhone 18 Air",
+            "iPhone19,7": "iPhone 18 Pro Max",
         ]
         return table[machine] ?? machine
     }

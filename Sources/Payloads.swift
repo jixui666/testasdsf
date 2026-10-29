@@ -466,7 +466,6 @@ enum Decmpfs {
         out.append(contentsOf: B.le32(typeZlibChunked))
         out.append(contentsOf: B.le64(UInt64(uncompressedSize)))
 
-        let headerSize = 16 + (chunkCount + 1) * 4
         var chunkBlobs: [[UInt8]] = []
         for _ in 0..<chunkCount {
             // flag 0x00 + zlib stream that decompresses to producePerChunk bytes of 0x41
@@ -498,7 +497,6 @@ enum Decmpfs {
         }
         offsets.append(running)
         for o in offsets { out.append(contentsOf: B.le32(o)) }
-        _ = headerSize
         for blob in chunkBlobs { out.append(contentsOf: blob) }
         return out
     }

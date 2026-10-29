@@ -174,10 +174,7 @@ enum Identity {
         rows.append((tl("主机名"), sysctlString("kern.hostname") ?? "—"))
         rows.append((tl("启动 UUID"), sysctlString("kern.bootsessionuuid") ?? "—"))
         rows.append((tl("启动时间"), sysctlString("kern.boottime") ?? "—"))
-        if let model = sysctlString("hw.machine") {
-            rows.append((tl("市场名称"), DeviceModel.current().marketingName))
-            _ = model
-        }
+        rows.append((tl("市场名称"), DeviceModel.current().marketingName))
         rows.append((tl("广告标识符"), ASIdentifierSummary.current))
         return rows
     }
@@ -359,6 +356,9 @@ struct MachOInfo {
 enum MachOInspector {
     static func inspect(_ path: String) -> MachOInfo? {
         guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)) else { return nil }
+        // a Mach-O header needs at least the magic; anything shorter is not one. The
+        // load below would read past the buffer (or hit a nil base on empty Data).
+        guard data.count >= 4 else { return nil }
         var info = MachOInfo()
 
         let magic = data.withUnsafeBytes { $0.load(as: UInt32.self) }

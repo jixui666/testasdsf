@@ -1,19 +1,4 @@
 #!/usr/bin/env python3
-# arc.rr · libarchive · RockRidge CL/PL · —
-# 原语: 探测 · 进程内 | Primitive: probe · in-process
-#
-# [zh] RockRidge 重定位环（未修复孪生）
-# 上游已于 2026 年 9 月修复 RockRidge 重定位环导致的无限循环（d14de384fcc6），Apple 未取该提交。该缺陷在 27.0 与 27.2 上均存在，是本工程中唯一一条对当前系统同样成立的候选。
-#
-# [en] RockRidge relocation cycle (unfixed sibling)
-# Upstream fixed the infinite loop caused by a RockRidge relocation cycle in September 2026
-# (d14de384fcc6) and Apple did not take the commit. The defect is present on both 27.0 and 27.2,
-# making it the only candidate in this project that also holds on current systems.
-#
-# 种子生成 — verbatim from Cinder27/scripts/gen_seeds.py
-# 触发器（run 闭包）与非种子构建器: 同目录 arc.rr.swift
-# triggers (run closures) & non-seed builders: arc.rr.swift in this folder
-
 import struct
 
 SECTOR = 2048

@@ -413,10 +413,16 @@ enum GPTPayload {
         let entryLBA = image.withUnsafeBytes { $0.load(fromByteOffset: 512 + 72, as: UInt64.self) }
         let entryCount = image.withUnsafeBytes { $0.load(fromByteOffset: 512 + 80, as: UInt32.self) }
         let entrySize = image.withUnsafeBytes { $0.load(fromByteOffset: 512 + 84, as: UInt32.self) }
+        // every one of these is attacker-controlled in a hand-crafted image; the Int
+        // conversions trap on huge values, and the multiply overflows. Bound them to
+        // values that can only index inside the image we already hold.
+        let safeLBA = entryLBA > 0 ? min(entryLBA, UInt64(image.count / 512)) : 0
+        let safeCount = min(Int(entryCount), 4096)
+        let safeSize = entrySize > 0 ? min(Int(entrySize), 512) : 128
         lines.append(tl("GPT 头: 条目表 LBA ") + "\(entryLBA)" + tl(" · ") + "\(entryCount)" + tl(" 项 · 每项 ") + "\(entrySize)" + tl(" B"))
-        let base = Int(entryLBA) * 512
-        for i in 0..<Int(entryCount) {
-            let off = base + i * Int(entrySize)
+        let base = Int(safeLBA) * 512
+        for i in 0..<safeCount {
+            let off = base + i * safeSize
             guard off + 128 <= image.count else { break }
             var units: [UInt16] = []
             for k in 0..<36 {

@@ -246,9 +246,11 @@ enum MachO {
         }
         guard removed > 0 else { return (data, 0) }
 
-        // rewrite the command stream in place, then zero the tail of the old region
+        // rewrite the command stream in place, then zero the tail of the old region.
+        // sizeofcmds is attacker-controlled in a malformed header — clamp before indexing,
+        // or the zeroing loop below walks off the end of the image.
         let streamStart = h.headerSize
-        let oldEnd = streamStart + Int(h.sizeofcmds)
+        let oldEnd = min(streamStart + Int(h.sizeofcmds), out.count)
         out.replaceSubrange(streamStart..<(streamStart + kept.count), with: kept)
         if streamStart + kept.count < oldEnd {
             for i in (streamStart + kept.count)..<oldEnd { out[i] = 0 }
