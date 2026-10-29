@@ -506,6 +506,13 @@ extension Catalog {
                 var lines: [String] = []
                 let cls: AnyClass? = NSClassFromString("CalAttachmentUtils")
                 lines.append("CalAttachmentUtils: \(cls == nil ? tl("不可见") : tl("可见"))")
+                // Which binary actually declares the class — dlsym has to be aimed at that
+                // image, not at a guessed framework path.
+                var ownerPath = "/System/Library/PrivateFrameworks/CalendarFoundation.framework/CalendarFoundation"
+                if let cls = cls, let imageName = class_getImageName(cls) {
+                    ownerPath = String(cString: imageName)
+                    lines.append(tl("  定义于: ") + ownerPath)
+                }
                 for name in ["_UnzipArchive", "_UnzipArchiveWithLimits", "_CalUnzipEntryDestinationPath", "_CalUnzipParentIsContained"] {
                     let sel = NSSelectorFromString(name)
                     lines.append("  \(name): " + (cls?.responds(to: sel) == true ? tl("存在") : tl("不存在")))
@@ -514,12 +521,12 @@ extension Catalog {
                 // responds(to:) only sees ObjC methods. The 288 B / 2040 B figures in the
                 // advisory are function sizes, so the symbol may be plain C — ask dlsym on the
                 // framework handle as well, with and without the usual leading underscore.
-                if let handle = dlopen("/System/Library/PrivateFrameworks/CalendarFoundation.framework/CalendarFoundation", RTLD_NOW) {
+                if let handle = dlopen(ownerPath, RTLD_NOW) {
                     for symbol in ["_UnzipArchive", "__UnzipArchive", "_UnzipArchiveWithLimits", "__UnzipArchiveWithLimits"] {
                         lines.append(tl("  dlsym ") + "\(symbol): " + (dlsym(handle, symbol) != nil ? tl("存在") : tl("不存在")))
                     }
                 } else {
-                    lines.append(tl("CalendarFoundation dlopen 失败"))
+                    lines.append(tl("dlopen 失败: ") + ownerPath)
                 }
 
                 var zip = ZipWriter()
