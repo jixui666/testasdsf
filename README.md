@@ -163,24 +163,29 @@ Evidence collection on device: **Mod → Backup** packs the whole data container
 `LSSupportsOpeningDocumentsInPlace` are already set, so that ZIP is reachable from Files.app
 without any extra tooling.
 
-## Device run — iOS 27.0.1 (24A446), iPhone19,7
+## Device run — iOS 27.0.1 (24A446), iPhone16,1
 
-Recorded from a container backup (`cinder27-journal.json`, `work/`), 2026-10-29. A `died` phase
-means the process terminated inside that primitive and the journal entry was never disarmed.
+Recorded from container backups (`cinder27-journal.json`, `work/results/*.json`, `work/`) plus
+the `.ips` crash reports, 2026-10-29. The device is an **iPhone 15 Pro** (`iPhone16,1`,
+`D83AP`, T8122), not the `iPhone19,7` this lab was written against — same 27.0.1 / 24A446, so
+the fix window is identical. A `died` phase means the process terminated inside that primitive
+and the journal entry was never disarmed.
 
 | Module | On device | What it establishes |
 |---|---|---|
-| `cm.fdleak` | **5,015,357 B across 7 files** | The bytestream daemon vended descriptors for the iTunes media store; `MediaLibrary.sqlitedb` came back as a complete 45-table SQLite schema |
-| `kern.decmpfs` | **died** inside the 4th probe (`chunks=2 produce=1`) | The under-production path is not merely disclosive on this build — it is fatal |
-| `cg.shading.sweep` | **died at R=8** (R=4 survived) | The fatal rung is far below the 136 the single shot uses |
-| `cg.shading` | **died** at render, R=136 | Value-controlled stack overflow |
-| `arc.iso.stress` | **died** at round 32 | The 2-byte libarchive pathname overrun is fatal on device |
+| `cm.fdleak` | **5,015,357 B across 7 files** | The bytestream daemon vended descriptors for the iTunes media store. The SQLite library came back as a complete 45-table schema; `_MLDatabaseProperties` carried account identifiers (`MLLastKnownActiveLockerAccountDSID`, `MLJaliscoAccountID`) and the library UUID |
+| `cg.shading` | **SIGSEGV at `0x3ff000000000001c`** (`cg_shading_type5_draw`) | The fault address is the PDF-chosen double `0x3FF0000000000000` plus `0x1c` — the overflow is value-controlled, exactly as predicted |
+| `cg.shading.sweep` | **SIGBUS in `RenderTriangleMesh`** at R=8 (R=4 survived) | The overrun walks off the stack into a protected page; the fatal rung is far below the 136 the single shot uses |
+| `arc.iso.stress` | **died** at round 32; no frame in libarchive | The crash surfaced on the main thread inside CoreAnimation (`objc_msgSend` on a null) — heap corruption from the 2-byte overrun showing up later, not at the site |
+| `kern.decmpfs` | **died**, and produced **no crash report at all** | Not a signal death: the three sibling crashes each wrote an `.ips`, this one wrote none. Most consistent with SIGKILL/jetsam — i.e. the malformed decmpfs read asks for an allocation far larger than the file |
 | `sbx.toctou` | **negative** — `bypassed=0 nosandbox=10 blocked=1` | 10 of 11 targets are readable *directly*, so there is no sandbox barrier for the link swap to cross |
+| `cal.unzip` | `_UnzipArchiveWithLimits` / `_CalUnzipEntryDestinationPath` / `_CalUnzipParentIsContained` all **absent** | Unfixed on 27.0.1 as expected. The `../` test in that run was confounded — it extracted with SECURE_NODOTDOT set, so 0 entries says nothing about libarchive. Now extracts twice and reports both |
+| `cal.format` | 18 of 18 candidate binaries **not on disk** | System frameworks live only in the dyld shared cache on 27.0.1; the disk route cannot answer the format question. The module now also dlopens and walks the mapped `__LINKEDIT` |
 | `kern.ipc` | survived, `ops=512` | No UAF receipt |
-| `iio.tiff.trunc`, `iio.jpeg.comment`, `iio.tiff.planar`, `kext.gpt`, `tool.*` | completed | As recorded by the harness |
+| `iio.tiff.trunc`, `iio.jpeg.comment`, `iio.tiff.planar`, `kext.gpt`, `sb.stash`, `tool.*` | completed | As recorded by the harness |
 
-Not yet run on device: `cal.unzip`, `cal.format`, `cm.fdleak.boundary`, `cm.rpu`, `fonts` — the
-Calendar pair is the open question behind 112619.
+Open on device: the `cal.format` memory route (first run of it), and a `JetsamEvent-*.ips` at
+22:48:32 to confirm the decmpfs death.
 
 ## Verification status
 

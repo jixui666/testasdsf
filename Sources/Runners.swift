@@ -184,7 +184,13 @@ enum Runners {
 
         /// Extract every entry into `destination`. Uses archive_read_extract so IPA, DEB,
         /// tar and zip all unpack through the same path — no external binary needed.
-        static func extractAll(_ data: Data, to destination: URL) -> (count: Int, errors: Int, status: String) {
+        ///
+        /// `flags` is a parameter because the default set is *the caller's* containment:
+        /// SECURE_SYMLINKS | SECURE_NODOTDOT reject a `../` entry inside libarchive itself.
+        /// A containment test that always passes those flags cannot distinguish "libarchive
+        /// refused" from "the caller refused", which is precisely the 112619 question.
+        static func extractAll(_ data: Data, to destination: URL,
+                               flags: Int32 = 0x0004 | 0x0002 | 0x0100 | 0x0200) -> (count: Int, errors: Int, status: String) {
             let fm = FileManager.default
             try? fm.createDirectory(at: destination, withIntermediateDirectories: true)
             guard let b = bind() else { return (0, 0, tl("libarchive 不可用")) }
@@ -209,10 +215,9 @@ enum Runners {
                 let r = b.nextHeader(handle, &entry)
                 if r != 0 { break }
                 guard let e = entry else { break }
-                // ARCHIVE_EXTRACT_TIME | PERM | SECURE_SYMLINKS | SECURE_NODOTDOT.
+                // Defaults: ARCHIVE_EXTRACT_TIME | PERM | SECURE_SYMLINKS | SECURE_NODOTDOT.
                 // NOT NO_AUTODIR (0x0400) — archives without explicit directory entries
                 // need the parents created for them.
-                let flags: Int32 = 0x0004 | 0x0002 | 0x0100 | 0x0200
                 if b.extract(handle, e, flags) == 0 { count += 1 } else { errors += 1 }
                 if count + errors > 20000 { break }
             }

@@ -280,6 +280,12 @@ struct DeviceModel {
 
     var marketingName: String {
         let table: [String: String] = [
+            "iPhone16,1": "iPhone 15 Pro",
+            "iPhone16,2": "iPhone 15 Pro Max",
+            "iPhone15,4": "iPhone 14",
+            "iPhone15,5": "iPhone 14 Plus",
+            "iPhone15,2": "iPhone 14 Pro",
+            "iPhone15,3": "iPhone 14 Pro Max",
             "iPhone17,1": "iPhone 16 Pro",
             "iPhone17,2": "iPhone 16 Pro Max",
             "iPhone17,3": "iPhone 16",

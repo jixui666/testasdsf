@@ -500,26 +500,44 @@ extension Catalog {
             reach: .systemProcess,
             tier: 3,
             summaryZh: "27.2 将 _UnzipArchive（288 B，无任何限制）替换为 _UnzipArchiveWithLimits（2040 B），并新增 _CalUnzipEntryDestinationPath / _CalUnzipParentIsContained / _CalUnzipTrackTopLevelPath 与 isSymbolicLinkAtURL。ICS 解析器本身未作改动 —— 修复全部位于附件归档的解压遏制层。",
-            notesZh: "应用侧可以验证 CalendarFoundation 的类与方法是否可见，以及本进程里 libarchive 的路径穿越是否被拦住（用 ../ 名字的归档试）。",
+            notesZh: "同一份 ../ 归档解两次：一次带 SECURE_SYMLINKS|SECURE_NODOTDOT（工具链默认值，遏制来自调用方参数），一次不带（libarchive 自身的行为）。两条结果必须分开读 —— 只有前者为 0、后者为 1 且文件越界落地，才说明遏制完全取决于调用方是否设置了这两个标志。用同一次调用的返回值当作「libarchive 接受 ../」的证据是不成立的。",
             run: { ctx in
                 ctx.arm("cal.unzip", "probe")
                 var lines: [String] = []
                 let cls: AnyClass? = NSClassFromString("CalAttachmentUtils")
                 lines.append("CalAttachmentUtils: \(cls == nil ? tl("不可见") : tl("可见"))")
-                for name in ["_UnzipArchiveWithLimits", "_CalUnzipEntryDestinationPath", "_CalUnzipParentIsContained"] {
+                for name in ["_UnzipArchive", "_UnzipArchiveWithLimits", "_CalUnzipEntryDestinationPath", "_CalUnzipParentIsContained"] {
                     let sel = NSSelectorFromString(name)
-                    lines.append("  \(name): \(cls?.responds(to: sel) == true ? tl("存在（已修复）") : tl("不存在（未修复）"))")
+                    lines.append("  \(name): " + (cls?.responds(to: sel) == true ? tl("存在") : tl("不存在")))
                 }
-                // prove libarchive itself accepts a traversal name, so the containment check
-                // is what has to stop it
+
                 var zip = ZipWriter()
                 zip.add("../../cinder27_traversal_probe.txt", Data("cinder27".utf8))
                 let evil = zip.build()
-                let probeDir = ctx.workdir.appendingPathComponent("traversal", isDirectory: true)
-                let result = Runners.Archive.extractAll(evil, to: probeDir)
-                lines.append(tl("libarchive 解包 ") + "\(result.count)" + tl(" 项（含 ../ 路径）→ 遏制必须由调用方负责"))
-                ctx.disarm("cal.unzip", "probe complete")
-                let _outHeadline = tl("日历附件遏制路径探测")
+
+                // 1. the flags the tooling uses by default: containment comes from the caller
+                let containedDir = ctx.workdir.appendingPathComponent("traversal_contained", isDirectory: true)
+                let contained = Runners.Archive.extractAll(evil, to: containedDir)
+
+                // 2. the same archive with neither SECURE bit: what libarchive does on its own
+                let rawDir = ctx.workdir.appendingPathComponent("traversal_raw", isDirectory: true)
+                let raw = Runners.Archive.extractAll(evil, to: rawDir, flags: 0x0004 | 0x0002)
+
+                // `../../x` from work/traversal_raw lands one level above the work directory
+                let escapedURL = ctx.workdir.deletingLastPathComponent()
+                    .appendingPathComponent("cinder27_traversal_probe.txt")
+                let escaped = FileManager.default.fileExists(atPath: escapedURL.path)
+                try? FileManager.default.removeItem(at: escapedURL)
+
+                lines.append(tl("带 SECURE 标志: ") + "\(contained.count)" + tl(" 项，错误 ") + "\(contained.errors)")
+                lines.append(tl("不带 SECURE 标志: ") + "\(raw.count)" + tl(" 项，错误 ") + "\(raw.errors)" + tl("，越界落地=") + "\(escaped ? tl("是") : tl("否"))")
+                if escaped {
+                    lines.append(tl("→ libarchive 自身不遏制；遏制完全取决于调用方是否设置 0x0100|0x0200"))
+                } else {
+                    lines.append(tl("→ 未观察到越界落地，本构建上 libarchive 另有拦截"))
+                }
+                ctx.disarm("cal.unzip", "contained=\(contained.count) raw=\(raw.count) escaped=\(escaped)")
+                let _outHeadline = tl("日历附件遏制层探测")
                 let _outDetail = lines.joined(separator: "\n")
                 return ModuleOutcome(headline: _outHeadline, detail: _outDetail)
             })
