@@ -181,8 +181,23 @@ and the journal entry was never disarmed.
 | `sbx.toctou` | **negative** — `bypassed=0 nosandbox=10 blocked=1` | 10 of 11 targets are readable *directly*, so there is no sandbox barrier for the link swap to cross |
 | `cal.unzip` | `_UnzipArchiveWithLimits` / `_CalUnzipEntryDestinationPath` / `_CalUnzipParentIsContained` all **absent**; `_UnzipArchive` is neither a selector nor an exported C symbol | Unfixed on 27.0.1. The same `../` archive extracted twice: **0 entries** with SECURE_SYMLINKS\|SECURE_NODOTDOT, **1 entry with a real escape** without them — libarchive does not contain on its own |
 | `cal.format` | format registration **not measurable in-process** — see below | 18/18 binaries absent from disk; every route into the image is closed |
+| `arc.iso` | **6 entries in 23 ms, then `ARCHIVE_FATAL (-30)`**; the process is killed seconds later | The `.ips` is `SIGKILL` / `CODESIGNING` "Invalid Page": a null call inside `_swift_release_dealloc` on the main thread. The 2-byte overrun reaches object state that is later used as a call target — and the death is **deferred**, so the module reports success |
+| `arc.cab` | **`ARCHIVE_FATAL (-30)`**, 0 entries, no crash | The LZX early-match is refused at the block layer; that site is dead in this shape |
 | `kern.ipc` | survived, `ops=512` | No UAF receipt |
 | `iio.tiff.trunc`, `iio.jpeg.comment`, `iio.tiff.planar`, `kext.gpt`, `sb.stash`, `tool.*` | completed | As recorded by the harness |
+
+### The 112522 oracle is deferred, not synchronous
+
+`arc.iso` shows the trap in this bug class. The module finishes: six entries, 23 ms,
+`next_header` returning `ARCHIVE_FATAL`. The journal disarms it as `done`. Seconds later the
+process is killed on the main thread, during SwiftUI teardown, with `CODESIGNING` /
+"Invalid Page" — a call through address 0 from `_swift_release_dealloc`.
+
+So the 2-byte write past `malloc(1024)` does not fail inside libarchive. It corrupts an
+adjacent allocation, and the corrupted object is only *used* when the UI tears down. Any test
+whose oracle is "did the module crash while running" reports this bug as clean; and the same
+deferred signature explains the `arc.iso.stress` death that landed in CoreAnimation rather
+than in the parser.
 
 ### The 112619 format question — closed as not measurable in-process
 
@@ -198,6 +213,12 @@ Four routes were tried on 27.0.1, and each one fails for a reason worth writing 
 Calling it is out too: `CalAttachmentUtils` resolves and is declared by
 CalendarFoundation, but `_UnzipArchive` is neither a selector nor an exported C symbol (both
 `_` and `__` forms checked with dlsym), so it cannot be reached at run time.
+
+The behavioural test was run as well: a self-sent ICS carrying the same 57 KB Joliet image as
+a base64 attachment imported into Calendar with no crash, while a single in-process traversal
+of that same image leaves the process dead within seconds (see the deferred-oracle note
+above). The attachment path therefore does not hand those bytes to libarchive's ISO reader.
+No evidence of `format_all` on that path, and the 112619 → 112522 delivery idea closes with it.
 
 What *is* established about the surface: libarchive itself does not contain `../` (0 entries
 with `SECURE_SYMLINKS|SECURE_NODOTDOT`, 1 entry and a real out-of-destination file without
