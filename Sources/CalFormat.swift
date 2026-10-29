@@ -222,6 +222,8 @@ enum LoadedImageScan {
         var nsyms: UInt64 = 0
         var stroff: UInt64 = 0
         var strsize: UInt64 = 0
+        var fixupsOff: UInt64 = 0
+        var fixupsSize: UInt64 = 0
         var hasText = false
         var hasLink = false
         var hasSym = false
@@ -270,53 +272,114 @@ enum LoadedImageScan {
                 l.stroff = UInt64(u32at(b, off + 16))
                 l.strsize = UInt64(u32at(b, off + 20))
                 l.hasSym = true
+            } else if cmd == 0x8000_0034, size >= 16 {   // LC_DYLD_CHAINED_FIXUPS
+                l.fixupsOff = UInt64(u32at(b, off + 8))
+                l.fixupsSize = UInt64(u32at(b, off + 12))
             }
             off += size
         }
         return l
     }
 
-    /// Name scan over the mapped __LINKEDIT.
+    /// Per-image imports, read from LC_DYLD_CHAINED_FIXUPS.
     ///
-    /// The dyld shared cache strips the nlist entries, so on 27.0.1 every Calendar image
-    /// reports an empty LC_SYMTAB — the imports are still named, but in the chained-fixup
-    /// string pool inside __LINKEDIT. Scanning that range for the symbol names recovers the
-    /// same signal the on-disk route would have produced.
+    /// Everything simpler than this failed, and the failures are worth recording:
     ///
-    /// In the shared cache an image's __LINKEDIT sits in the cache-wide linkedit region, so
-    /// `__LINKEDIT.vmaddr - __TEXT.vmaddr` is *gigabytes*, not a few pages: an earlier version
-    /// rejected every candidate with a 1 GB sanity bound and reported "missing segments",
-    /// which is why the first run of this route produced nothing. The distance is now allowed
-    /// up to 4 GB and the scan is capped by size instead, with the geometry recorded in the
-    /// note so a miss is diagnosable rather than opaque.
-    static func needleHits(in image: Image, needles: [String]) -> (hits: [String], note: String) {
+    ///   * the on-disk route finds no binary at all (frameworks are dyld-cache-only on 27.0.1);
+    ///   * LC_SYMTAB in a cache image has been stripped, so `imports(of:)` returns nothing;
+    ///   * a raw **name scan over __LINKEDIT is invalid**. In the cache an image's __LINKEDIT
+    ///     range covers the cache-wide linkedit region, which also holds libarchive's own
+    ///     symbol strings. The first run of that route reported the identical six
+    ///     `archive_*` names for twelve unrelated frameworks — including CalendarWidget and
+    ///     SiriCalendarUI — because the scan was reading one shared pool, not twelve import
+    ///     tables. It looked like a positive answer and was not one.
+    ///
+    /// The chained-fixups header is per image: `imports_count` entries, each carrying a name
+    /// offset into that image's symbol pool. Offsets are relative to the __LINKEDIT start, and
+    /// the cache maps __LINKEDIT gigabytes away from __TEXT, so the distance is used as-is
+    /// (up to 16 GB) instead of being capped.
+    static func chainedImports(of image: Image) -> (symbols: [String], note: String) {
         let l = layout(of: image)
         if !l.note.isEmpty { return ([], l.note) }
-        guard l.hasText, l.hasLink else { return ([], "缺少 __TEXT / __LINKEDIT") }
-        guard l.linkVM >= l.textVM else { return ([], "段序异常 text=0x" + String(l.textVM, radix: 16)) }
+        guard l.hasText, l.hasLink, l.linkVM >= l.textVM else { return ([], "段信息缺失") }
         let delta = l.linkVM - l.textVM
-        guard delta < (4 << 30) else { return ([], "段间距异常 " + "\(delta)") }
+        guard delta < (16 << 30) else { return ([], "段间距异常 " + "\(delta)") }
         guard l.linkSize > 0, l.linkSize < (1 << 31) else {
             return ([], "__LINKEDIT 尺寸异常 " + "\(l.linkSize)")
         }
 
-        let cap: UInt64 = 256 << 20
-        let size = min(l.linkSize, cap)
         let b = image.header.assumingMemoryBound(to: UInt8.self)
-        let start = b + Int(delta)
+        let linkBase = b + Int(delta)
+        let linkSize = Int(l.linkSize)
 
-        // Data(bytesNoCopy:) wraps the mapping without copying and range(of:) is a real
-        // substring search, which matters when the region is hundreds of megabytes.
-        let region = Data(bytesNoCopy: UnsafeMutableRawPointer(mutating: start),
-                          count: Int(size), deallocator: .none)
-        var hits: [String] = []
-        for needle in needles where region.range(of: Data(needle.utf8)) != nil {
-            hits.append(needle)
+        // LC_DYLD_CHAINED_FIXUPS: linkedit_data_command { cmd, cmdsize, dataoff, datasize }
+        guard l.fixupsOff > 0, l.fixupsSize > 0 else { return ([], "无 chained fixups") }
+
+        // dataoff is a file offset on disk but linkedit-relative in a cache image; try the
+        // file-offset reading first and validate it before trusting it. Both candidates are
+        // range-checked against __LINKEDIT before anything is read, because a pointer before
+        // the segment would fault instead of returning a note.
+        var header: UnsafePointer<UInt8>?
+        if l.fixupsOff >= l.linkFile, l.fixupsOff - l.linkFile + 24 <= l.linkSize {
+            let candidate = linkBase + Int(l.fixupsOff - l.linkFile)
+            if plausibleFixupsHeader(candidate, linkSize: linkSize) { header = candidate }
         }
+        if header == nil, l.fixupsOff + 24 <= l.linkSize {
+            let candidate = linkBase + Int(l.fixupsOff)
+            if plausibleFixupsHeader(candidate, linkSize: linkSize) { header = candidate }
+        }
+        guard let fixed = header else { return ([], "fixups 头部不可读") }
+        let headerPointer: UnsafePointer<UInt8> = fixed
 
-        var note = "linkedit=" + "\(l.linkSize)" + " scanned=" + "\(size)" + " delta=" + "\(delta)"
-        if l.linkSize > cap { note += "（已截断）" }
-        return (hits, note)
+        let importsOffset = Int(u32at(headerPointer, 8))
+        let symbolsOffset = Int(u32at(headerPointer, 12))
+        let importsCount = Int(u32at(headerPointer, 16))
+        let importsFormat = Int(u32at(headerPointer, 20))
+        guard importsCount > 0, importsCount < 200000,
+              importsOffset > 0, importsOffset + importsCount * 8 <= linkSize,
+              symbolsOffset > 0, symbolsOffset < linkSize else {
+            return ([], "imports 表越界")
+        }
+        let stride = importsFormat == 3 ? 8 : 4
+        let importsBase = linkBase + importsOffset
+        let symbolsBase = linkBase + symbolsOffset
+
+        var out: [String] = []
+        var i = 0
+        while i < importsCount {
+            let entry = importsBase + i * stride
+            let raw = u32at(entry, 0)
+            let nameOffset = Int(raw & 0x7FFFFF)
+            i += 1
+            guard nameOffset > 0, symbolsOffset + nameOffset < linkSize else { continue }
+            guard let name = cstringAt(symbolsBase + nameOffset, limit: linkSize - symbolsOffset - nameOffset) else { continue }
+            out.append(name)
+        }
+        return (out, "imports=" + "\(importsCount)")
+    }
+
+    private static func plausibleFixupsHeader(_ p: UnsafePointer<UInt8>, linkSize: Int) -> Bool {
+        // fixups_version is 0 on every shipping image; imports_count and the two offsets have
+        // to land inside __LINKEDIT.
+        guard u32at(p, 0) == 0 else { return false }
+        let importsOffset = Int(u32at(p, 8))
+        let symbolsOffset = Int(u32at(p, 12))
+        let importsCount = Int(u32at(p, 16))
+        guard importsCount < 200000 else { return false }
+        guard importsOffset < linkSize, symbolsOffset < linkSize else { return false }
+        return true
+    }
+
+    private static func cstringAt(_ p: UnsafePointer<UInt8>, limit: Int) -> String? {
+        guard limit > 0 else { return nil }
+        var bytes: [UInt8] = []
+        var i = 0
+        while i < limit, i < 1024, p[i] != 0 {
+            bytes.append(p[i])
+            i += 1
+        }
+        if bytes.isEmpty { return nil }
+        return String(decoding: bytes, as: UTF8.self)
     }
 
     /// Imported symbols of a mapped image. The addresses come from LC_SEGMENT_64 metadata, and
@@ -442,17 +505,13 @@ extension Catalog {
                             archives = parsed.0.filter { $0.contains("archive_") }
                             if !parsed.1.isEmpty { origin = origin + " · " + parsed.1 }
                             // The shared cache strips the nlist entries, so the symbol table
-                            // comes back empty. The import names are still in __LINKEDIT — scan
-                            // the mapped range for them instead.
+                            // comes back empty. Read the image's own chained-fixups import
+                            // list instead — a name scan over __LINKEDIT is not evidence, it
+                            // reads the cache-wide pool that also holds libarchive's strings.
                             if archives.isEmpty {
-                                let scan = LoadedImageScan.needleHits(in: image,
-                                                                     needles: MachOImportScan.needles)
-                                hits = scan.hits
-                                if !hits.isEmpty {
-                                    origin = origin + " · " + tl("名字扫描命中 ") + "\(hits.count)"
-                                } else if !scan.note.isEmpty {
-                                    origin = origin + " · " + scan.note
-                                }
+                                let ci = LoadedImageScan.chainedImports(of: image)
+                                archives = ci.symbols.filter { $0.contains("archive_") }
+                                if !ci.note.isEmpty { origin = origin + " · " + ci.note }
                             }
                         } else {
                             unreachable += 1
