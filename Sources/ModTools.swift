@@ -42,8 +42,17 @@ struct ZipWriter {
         let now = Date()
         let cal = Calendar(identifier: .gregorian)
         let comps = cal.dateComponents([.year, .month, .day, .hour, .minute, .second], from: now)
-        let dosTime = UInt16(((comps.hour ?? 0) << 11) | ((comps.minute ?? 0) << 5) | ((comps.second ?? 0) / 2))
-        let dosDate = UInt16((((comps.year ?? 2026) - 1980) << 9) | ((comps.month ?? 1) << 5) | (comps.day ?? 1))
+        // Each field is unpacked and converted once: the single nested expression this used
+        // to be mixes `??`, shifts, `|` and a UInt16 initializer, and the solver refuses it.
+        let hour = comps.hour ?? 0
+        let minute = comps.minute ?? 0
+        let second = (comps.second ?? 0) / 2
+        let dosTime = UInt16((hour << 11) | (minute << 5) | second)
+
+        let year = max((comps.year ?? 2026) - 1980, 0)
+        let month = comps.month ?? 1
+        let day = comps.day ?? 1
+        let dosDate = UInt16((year << 9) | (month << 5) | day)
 
         var count: UInt16 = 0
         for entry in entries {
