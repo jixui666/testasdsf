@@ -511,6 +511,17 @@ extension Catalog {
                     lines.append("  \(name): " + (cls?.responds(to: sel) == true ? tl("存在") : tl("不存在")))
                 }
 
+                // responds(to:) only sees ObjC methods. The 288 B / 2040 B figures in the
+                // advisory are function sizes, so the symbol may be plain C — ask dlsym on the
+                // framework handle as well, with and without the usual leading underscore.
+                if let handle = dlopen("/System/Library/PrivateFrameworks/CalendarFoundation.framework/CalendarFoundation", RTLD_NOW) {
+                    for symbol in ["_UnzipArchive", "__UnzipArchive", "_UnzipArchiveWithLimits", "__UnzipArchiveWithLimits"] {
+                        lines.append(tl("  dlsym ") + "\(symbol): " + (dlsym(handle, symbol) != nil ? tl("存在") : tl("不存在")))
+                    }
+                } else {
+                    lines.append(tl("CalendarFoundation dlopen 失败"))
+                }
+
                 var zip = ZipWriter()
                 zip.add("../../cinder27_traversal_probe.txt", Data("cinder27".utf8))
                 let evil = zip.build()

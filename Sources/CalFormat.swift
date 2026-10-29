@@ -213,25 +213,37 @@ enum LoadedImageScan {
         return out
     }
 
-    /// Imported symbols of a mapped image. The addresses come from LC_SEGMENT_64 metadata, and
-    /// every range is checked against __LINKEDIT's file range before it is read, so this
-    /// cannot walk off the mapping.
-    static func imports(of image: Image) -> ([String], String) {
-        let b = image.header.assumingMemoryBound(to: UInt8.self)
-        guard u32at(b, 0) == 0xFEED_FACF else { return ([], "非 64 位 Mach-O") }
+    struct Layout {
+        var textVM: UInt64 = 0
+        var linkVM: UInt64 = 0
+        var linkFile: UInt64 = 0
+        var linkSize: UInt64 = 0
+        var symoff: UInt64 = 0
+        var nsyms: UInt64 = 0
+        var stroff: UInt64 = 0
+        var strsize: UInt64 = 0
+        var hasText = false
+        var hasLink = false
+        var hasSym = false
+        var note = ""
+    }
 
+    /// One pass over the load commands, shared by the symbol-table and name-scan routes.
+    static func layout(of image: Image) -> Layout {
+        var l = Layout()
+        let b = image.header.assumingMemoryBound(to: UInt8.self)
+        guard u32at(b, 0) == 0xFEED_FACF else {
+            l.note = "非 64 位 Mach-O"
+            return l
+        }
         let ncmds = Int(u32at(b, 16))
         let sizeofcmds = Int(u32at(b, 20))
         guard ncmds > 0, ncmds <= 4096, sizeofcmds > 32, sizeofcmds < (1 << 20) else {
-            return ([], "加载命令尺寸异常")
+            l.note = "加载命令尺寸异常"
+            return l
         }
 
         var off = 32
-        var textVM: UInt64 = 0
-        var linkVM: UInt64 = 0, linkFile: UInt64 = 0, linkSize: UInt64 = 0
-        var symoff: UInt64 = 0, nsyms: UInt64 = 0, stroff: UInt64 = 0, strsize: UInt64 = 0
-        var hasText = false, hasLink = false, hasSym = false
-
         for _ in 0..<ncmds {
             guard off + 8 <= sizeofcmds else { break }
             let cmd = u32at(b, off)
@@ -244,27 +256,88 @@ enum LoadedImageScan {
                 let fileoff = u64at(b, off + 40)
                 let filesize = u64at(b, off + 48)
                 if name == "__TEXT" {
-                    textVM = vmaddr
-                    hasText = true
+                    l.textVM = vmaddr
+                    l.hasText = true
                 } else if name == "__LINKEDIT" {
-                    linkVM = vmaddr
-                    linkFile = fileoff
-                    linkSize = filesize
-                    hasLink = true
+                    l.linkVM = vmaddr
+                    l.linkFile = fileoff
+                    l.linkSize = filesize
+                    l.hasLink = true
                 }
             } else if cmd == 0x2, size >= 24 {           // LC_SYMTAB
-                symoff = UInt64(u32at(b, off + 8))
-                nsyms = UInt64(u32at(b, off + 12))
-                stroff = UInt64(u32at(b, off + 16))
-                strsize = UInt64(u32at(b, off + 20))
-                hasSym = true
+                l.symoff = UInt64(u32at(b, off + 8))
+                l.nsyms = UInt64(u32at(b, off + 12))
+                l.stroff = UInt64(u32at(b, off + 16))
+                l.strsize = UInt64(u32at(b, off + 20))
+                l.hasSym = true
             }
             off += size
         }
+        return l
+    }
+
+    /// Name scan over the mapped __LINKEDIT.
+    ///
+    /// The dyld shared cache strips the nlist entries, so on 27.0.1 every Calendar image
+    /// reports an empty LC_SYMTAB — the imports are still named, but in the chained-fixup
+    /// string pool inside __LINKEDIT. Scanning that range for the symbol names recovers the
+    /// same signal the on-disk route would have produced. The range is the segment's own
+    /// filesize, so a corrupt header produces a note instead of a read past the mapping.
+    static func needleHits(in image: Image, needles: [String]) -> (hits: [String], note: String) {
+        let l = layout(of: image)
+        if !l.note.isEmpty { return ([], l.note) }
+        guard l.hasText, l.hasLink, l.linkVM >= l.textVM, l.linkVM - l.textVM < (1 << 30) else {
+            return ([], "缺少 __TEXT / __LINKEDIT")
+        }
+        let cap: UInt64 = 64 << 20
+        let size = min(l.linkSize, cap)
+        guard size > 0 else { return ([], "__LINKEDIT 尺寸异常") }
+
+        let b = image.header.assumingMemoryBound(to: UInt8.self)
+        let start = b + Int(l.linkVM - l.textVM)
+        let count = Int(size)
+        var hits: [String] = []
+        for needle in needles {
+            if patternIn(start, count: count, pattern: Array(needle.utf8)) {
+                hits.append(needle)
+            }
+        }
+        let note = l.linkSize > cap ? "扫描已截断到 64 MB" : ""
+        return (hits, note)
+    }
+
+    private static func patternIn(_ base: UnsafePointer<UInt8>, count: Int, pattern: [UInt8]) -> Bool {
+        guard !pattern.isEmpty, count >= pattern.count else { return false }
+        let n = pattern.count
+        let last = count - n
+        var i = 0
+        while i <= last {
+            if base[i] == pattern[0] {
+                var k = 1
+                while k < n, base[i + k] == pattern[k] {
+                    k += 1
+                }
+                if k == n { return true }
+            }
+            i += 1
+        }
+        return false
+    }
+
+    /// Imported symbols of a mapped image. The addresses come from LC_SEGMENT_64 metadata, and
+    /// every range is checked against __LINKEDIT's file range before it is read, so this
+    /// cannot walk off the mapping.
+    static func imports(of image: Image) -> ([String], String) {
+        let l = layout(of: image)
+        if !l.note.isEmpty { return ([], l.note) }
+        let b = image.header.assumingMemoryBound(to: UInt8.self)
+        let textVM = l.textVM, linkVM = l.linkVM, linkFile = l.linkFile, linkSize = l.linkSize
+        let symoff = l.symoff, nsyms = l.nsyms, stroff = l.stroff, strsize = l.strsize
+        let hasText = l.hasText, hasLink = l.hasLink, hasSym = l.hasSym
 
         guard hasText, hasLink, hasSym else { return ([], "缺少 __TEXT / __LINKEDIT / LC_SYMTAB") }
         guard nsyms > 0, nsyms < (1 << 22), strsize > 0, strsize < (1 << 24) else {
-            return ([], "符号表为空")
+            return ([], "缓存镜像已剥离符号表")
         }
         guard linkSize > 0, linkSize < (1 << 28) else { return ([], "__LINKEDIT 尺寸异常") }
 
@@ -373,6 +446,19 @@ extension Catalog {
                             origin = tl("内存镜像 ") + image.name
                             archives = parsed.0.filter { $0.contains("archive_") }
                             if !parsed.1.isEmpty { origin = origin + " · " + parsed.1 }
+                            // The shared cache strips the nlist entries, so the symbol table
+                            // comes back empty. The import names are still in __LINKEDIT — scan
+                            // the mapped range for them instead.
+                            if archives.isEmpty {
+                                let scan = LoadedImageScan.needleHits(in: image,
+                                                                     needles: MachOImportScan.needles)
+                                hits = scan.hits
+                                if !hits.isEmpty {
+                                    origin = origin + " · " + tl("名字扫描命中 ") + "\(hits.count)"
+                                } else if !scan.note.isEmpty {
+                                    origin = origin + " · " + scan.note
+                                }
+                            }
                         } else {
                             unreachable += 1
                             origin = tl("dlopen 成功但未找到镜像（dyld 符号可用=") + "\(LoadedImageScan.available)" + "）"
@@ -417,7 +503,7 @@ extension Catalog {
                 } else if sawAny {
                     lines.append(tl("只引用了解包入口，未见格式注册 —— 需要确认调用点在哪个二进制里。"))
                 } else {
-                    lines.append(tl("两条通道都没有拿到符号：无法定论（不是否定）。需要换用未 strip 的 dyld 缓存镜像。"))
+                    lines.append(tl("三条通道（磁盘符号表 / 内存符号表 / __LINKEDIT 名字扫描）都没有命中：无法定论（不是否定）。"))
                 }
                 lines.append(tl("注意：引用存在只证明「引用存在」，不证明「嗅探已启用」；后者要在投递路径上实测。"))
 
