@@ -511,5 +511,14 @@ enum ModuleText {
             notes: """
             Four channels at 8 bits each, while declaring bitsPerPixel = 8.
             """),
+
+        "cal.format": Row(
+            title: "Archive-format surface of the Calendar unzip path (libarchive imports)",
+            summary: """
+            What the containment layer for CVE-2026-112619 is missing is settled; what is still unmapped is how wide the delivery surface is. If Calendar's attachment extraction registers libarchive through archive_read_support_format_all, the archive format is decided by sniffing the bytes — an attacker can make the attachment an ISO9660/Joliet image and move 112522's 1024-byte pathname-chain overrun onto this delivery path. If only format_zip is registered, the Joliet site is unreachable there. A sandboxed app cannot call _UnzipArchive, but it can read the framework binary and report which libarchive entry points that binary references. This module does that over two independent channels: LC_SYMTAB undefined symbols (precise, empty on a dyld-cache stub) and a raw name scan (coarse, survives a stripped symtab). An empty channel is never written up as a negative finding.
+            """,
+            notes: """
+            The two channels are recorded separately. A name hit for format_all means "reference present", not "sniffing enabled" — necessary, not sufficient; the verdict waits on the delivery path. The candidate set carries both the fixed paths and every Calendar-named framework under /System/Library/PrivateFrameworks, so the binary that actually performs the extraction cannot be missed.
+            """),
     ]
 }

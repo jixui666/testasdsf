@@ -4,7 +4,7 @@ import ImageIO
 
 enum Catalog {
 
-    static let all: [ExploitModule] = coreGraphics + imageIO + imageIO2 + archive + archive2 + coreMedia + crossSandbox + kernel + audio + audio2 + video + fonts + font2 + kext + userspace + tooling + probes
+    static let all: [ExploitModule] = coreGraphics + imageIO + imageIO2 + archive + archive2 + coreMedia + crossSandbox + kernel + audio + audio2 + video + fonts + font2 + kext + userspace + tooling + probes + formatProbes
 
     /// Modules that pin a fix Apple shipped in 27.2 (i.e. carry a CVE number). Computed,
     /// never hardcoded — the overview subtitle reads it, so it cannot go stale.
@@ -735,6 +735,7 @@ extension Catalog {
             (tl("应用与系统进程"), userspace),
             (tl("工具链自检"), tooling),
             (tl("可达性探测"), probes),
+            (tl("格式与导入面"), formatProbes),
         ]
     }
 

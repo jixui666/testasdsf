@@ -23,12 +23,17 @@ rm -rf "$OUT"
 mkdir -p "$APP"
 
 echo "== compile (arm64, min iOS $MIN_IOS) =="
+# EXTRA_SWIFT_FLAGS exists for one reason: the module tables in Sources/ are large array
+# literals of closures, and an older Swift solver refuses them as "too complex to type-check
+# in reasonable time". A newer toolchain is the real fix; this hook lets a build site raise
+# the solver threshold instead of patching the sources.
 xcrun --sdk iphoneos swiftc \
   -parse-as-library \
   -swift-version 5 \
   -O \
   -target "arm64-apple-ios$MIN_IOS" \
   -sdk "$SDK" \
+  ${EXTRA_SWIFT_FLAGS:-} \
   -o "$APP/Cinder27" \
   "$ROOT"/Sources/*.swift
 

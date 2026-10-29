@@ -29,29 +29,35 @@ jobs:
         with:
           fetch-depth: 1
 
-      # A runner can ship several Xcodes; only one of them has to have the device SDK.
-      # Picking explicitly beats trusting whatever is selected by default.
-      - name: Select an Xcode with the iPhoneOS SDK
+      # The image carries several Xcodes (16.0 … 26.x). The oldest one is what a naive glob
+      # picks, and its Swift 6.0 solver cannot type-check the module tables in Sources/ —
+      # "unable to type-check this expression in reasonable time". Pick the newest iOS SDK
+      # instead: Swift 6.2 rewrote that part of the type checker, and 26.x matches the SDK
+      # the sources were written against.
+      - name: Select the newest Xcode with the iPhoneOS SDK
         shell: bash
         run: |
           set -euo pipefail
-          found=""
+          : > /tmp/xcodes.txt
+          echo "candidates:"
           for candidate in /Applications/Xcode*.app; do
-            [ -d "$candidate/Contents/Developer/Platforms/iPhoneOS.platform" ] || continue
-            sudo xcode-select -s "$candidate/Contents/Developer"
-            found="$candidate"
-            break
+            dev="$candidate/Contents/Developer"
+            [ -d "$dev/Platforms/iPhoneOS.platform" ] || continue
+            sdk=$(DEVELOPER_DIR="$dev" xcrun --sdk iphoneos --show-sdk-version 2>/dev/null || echo 0.0)
+            printf '  %-46s iOS SDK %s\n' "$candidate" "$sdk"
+            echo "$sdk|$dev" >> /tmp/xcodes.txt
           done
-          if [ -z "$found" ]; then
+          if [ ! -s /tmp/xcodes.txt ]; then
             echo "no Xcode with an iPhoneOS platform found" >&2
-            ls -1 /Applications | sed 's/^/  /' >&2
             exit 1
           fi
-          echo "using: $found"
+          best=$(awk -F'|' '{ split($1,v,"."); k=v[1]*10000+v[2]*100+v[3]; if (k >= m) { m=k; d=$2 } } END { print d }' /tmp/xcodes.txt)
+          sudo xcode-select -s "$best"
+          echo "selected: $best"
           xcodebuild -version
+          swiftc --version
           echo "sdk: $(xcrun --sdk iphoneos --show-sdk-version)"
           xcrun --sdk iphoneos --show-sdk-path
-          swiftc --version
 
       - name: Build unsigned IPA
         shell: bash
@@ -82,7 +88,7 @@ jobs:
           print("entries:", len(names))
           print("binary:", len(binary), "bytes")
           print("CFBundleIdentifier in Info.plist:", b"com.jbjf.cinder27" in info)
-          if not (b"com.jbjf.cinder27" in info):
+          if b"com.jbjf.cinder27" not in info:
               raise SystemExit("Info.plist does not carry the expected bundle id")
           if binary[0:4] != b"\xcf\xfa\xed\xfe":
               raise SystemExit("main binary is not a thin arm64 Mach-O")
