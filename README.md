@@ -145,12 +145,15 @@ Two things the workflow exists to pin down:
   plain `/Applications/Xcode*.app` glob picks 16.0 — the least capable one. The workflow
   enumerates every Xcode that has an `iPhoneOS` platform and selects the highest iOS SDK.
 - **Declaration shape.** Every `ExploitModule` lives in its own `private static let`, and every
-  `return ModuleOutcome(…)` passes locals rather than inline expressions. Both are one
-  expression per declaration/argument, because a single expression that carries several
-  `String +` chains (plus ternaries) is rejected by the solver with *"unable to type-check this
-  expression in reasonable time"* — on 6.0 and 6.2 alike. `scripts/hoist_modules.py` and
-  `scripts/split_outcomes.py` perform those rewrites; both refuse to run if a boundary is
-  ambiguous, and neither changes semantics.
+  `return ModuleOutcome(…)` passes locals rather than inline expressions — one expression per
+  declaration/argument. `scripts/hoist_modules.py` and `scripts/split_outcomes.py` perform those
+  rewrites; both refuse to run if a boundary is ambiguous, and neither changes semantics.
+- **Solver budget.** A handful of closures are still a single expression carrying many
+  `String +` chains, and the constraint solver's default per-expression budget is not enough
+  for them. The build raises it with the frontend option that controls it:
+  `-Xfrontend -solver-expression-time-threshold=120` (seconds), fed through
+  `EXTRA_SWIFT_FLAGS`. The option lives in `include/swift/Option/FrontendOptions.td`, not in
+  `Options.td` — which is why it is easy to miss.
 
 Evidence collection on device: **Mod → Backup** packs the whole data container — including
 `Library/Application Support/Cinder27/work`, where every module writes its artifacts, and the

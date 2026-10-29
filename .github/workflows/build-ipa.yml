@@ -61,6 +61,14 @@ jobs:
 
       - name: Build unsigned IPA
         shell: bash
+        # The module closures in Sources/ are large and several of them are a single
+        # expression carrying many `String +` chains. Swift's constraint solver gives up
+        # after its default per-expression budget with "unable to type-check this
+        # expression in reasonable time". The frontend option that controls that budget is
+        # -solver-expression-time-threshold=<seconds>; raise it rather than weakening the
+        # sources further.
+        env:
+          EXTRA_SWIFT_FLAGS: "-Xfrontend -solver-expression-time-threshold=120"
         run: bash scripts/build-device.sh
 
       - name: Verify the IPA
