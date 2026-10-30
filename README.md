@@ -219,6 +219,17 @@ frame 1 clears past it. Two calibrations matter:
 What it does establish is the one thing the rest of the set lacks: the corruption happens in
 **another process's sandbox**, not in Cinder27's own container.
 
+The overshoot sweep says how far that goes. Six crashes across frame-1 heights 48 / 64 / 96 /
+128 are the same event every time: `__bzero` at a **page-aligned** address, on six distinct
+64 KiB bases (ASLR) whose in-bucket offsets are 0x8000 or 0. So the fault is the first
+unmapped page after whatever region the surface landed in — the *length* of the overrun is not
+visible in the fault address and does not track the height we chose. Add that the fill value is
+zero and the neighbouring allocation belongs to another process, and nothing about this write
+is attacker-selected except that it happens.
+
+That is the honest end of the escape line on 27.0.1: the data crosses a process boundary, the
+control does not.
+
 ### The 112522 oracle is deferred, not synchronous
 
 `arc.iso` shows the trap in this bug class. The module finishes: six entries, 23 ms,
