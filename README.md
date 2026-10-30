@@ -184,7 +184,40 @@ and the journal entry was never disarmed.
 | `arc.iso` | **6 entries in 23 ms, then `ARCHIVE_FATAL (-30)`**; the process is killed seconds later | The `.ips` is `SIGKILL` / `CODESIGNING` "Invalid Page": a null call inside `_swift_release_dealloc` on the main thread. The 2-byte overrun reaches object state that is later used as a call target — and the death is **deferred**, so the module reports success |
 | `arc.cab` | **`ARCHIVE_FATAL (-30)`**, 0 entries, no crash | The LZX early-match is refused at the block layer; that site is dead in this shape |
 | `kern.ipc` | survived, `ops=512` | No UAF receipt |
+| `iio.heic.frames` | in-process decode clean; **link preview in Messages: SIGSEGV at `0x7c58e08000`** | `LPAnimatedImageTranscoder` → `CGContextClearRect` → `CGBlt_fillBytes` → `__bzero`: an out-of-bounds **write** inside another app's process. One tap on "Load Preview" is required |
 | `iio.tiff.trunc`, `iio.jpeg.comment`, `iio.tiff.planar`, `kext.gpt`, `sb.stash`, `tool.*` | completed | As recorded by the harness |
+
+### CVE-2026-112621 — LinkPresentation, not ImageIO, and it costs one tap
+
+The Apple advisory for this one names the component plainly: *LinkPresentation — processing a
+maliciously crafted image may result in memory corruption; an out-of-bounds write issue was
+addressed with improved bounds checking*. Every in-process test therefore missed it by
+construction: `iio.heic.frames` decoded both frames of a two-frame collection (256×16 and
+256×48) through `CGImageSource`, full-frame and thumbnail, and returned both at their declared
+sizes without faulting. ImageIO was never the vulnerable code.
+
+Served as an `og:image` and sent to the same device as a message, the same 807-byte file
+generated **on the device** crashes Messages:
+
+```
+queue: com.apple.LinkPresentation.AnimatedImageTranscoder
+ 8 CoreGraphics      CGContextClearRect
+ 9 LinkPresentation  -[LPAnimatedImageTranscoder encodeNextFrame]
+→ EXC_BAD_ACCESS / SIGSEGV, KERN_INVALID_ADDRESS at 0x7c58e08000 (in __bzero)
+```
+
+That is the geometry confusion doing what the PoC's comment promises: frame 0 pins the surface,
+frame 1 clears past it. Two calibrations matter:
+
+- **it is one tap, not zero.** iOS defers the fetch behind a "Load Preview" placeholder, and
+  only after that tap does LinkPresentation fetch the `og:image` and transcode it. Any channel
+  that auto-loads a preview would change this, so the posture depends on the sender being
+  trusted rather than on the bug;
+- **the write is `__bzero`** — a zero-fill of an oversized clear rect, not attacker-chosen
+  bytes, and it lands in an unmapped page. Turning it into anything useful needs heap shaping.
+
+What it does establish is the one thing the rest of the set lacks: the corruption happens in
+**another process's sandbox**, not in Cinder27's own container.
 
 ### The 112522 oracle is deferred, not synchronous
 
