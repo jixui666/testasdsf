@@ -515,10 +515,18 @@ enum ModuleText {
         "cal.format": Row(
             title: "Archive-format surface of the Calendar unzip path (libarchive imports)",
             summary: """
-            What the containment layer for CVE-2026-112619 is missing is settled; what is still unmapped is how wide the delivery surface is. If Calendar's attachment extraction registers libarchive through archive_read_support_format_all, the archive format is decided by sniffing the bytes — an attacker can make the attachment an ISO9660/Joliet image and move 112522's 1024-byte pathname-chain overrun onto this delivery path. If only format_zip is registered, the Joliet site is unreachable there. A sandboxed app cannot call _UnzipArchive, but it can read the framework binary and report which libarchive entry points that binary references. This module does that over two independent channels: LC_SYMTAB undefined symbols (precise, empty on a dyld-cache stub) and a raw name scan (coarse, survives a stripped symtab). An empty channel is never written up as a negative finding.
+            The containment side of CVE-2026-112619 is settled — 27.0.1 carries none of the three helpers 27.2 adds — so the open question is how wide the delivery surface is. It cannot be answered from inside a sandboxed app on 27.0.1. Four routes were tried and all fail structurally: the 18 candidate binaries are absent from disk (dyld-cache-only); LC_SYMTAB on the mapped image is stripped (nsyms = 0); a raw scan of the mapped __LINKEDIT produces a false positive, because an image's __LINKEDIT range covers the cache-wide pool that also holds libarchive's own symbol strings — twelve unrelated frameworks reported the identical six archive_* names; and the cache images carry no LC_DYLD_CHAINED_FIXUPS at all. Calling _UnzipArchive is out too: it is neither a selector nor an exported C symbol.
             """,
             notes: """
-            The two channels are recorded separately. A name hit for format_all means "reference present", not "sniffing enabled" — necessary, not sufficient; the verdict waits on the delivery path. The candidate set carries both the fixed paths and every Calendar-named framework under /System/Library/PrivateFrameworks, so the binary that actually performs the extraction cannot be missed.
+            The value of this module is now a negative result: the measurement path is closed by the platform, not by the implementation. The false positive is the part worth remembering — it looked exactly like a positive answer. Rule: the same symbol set repeated across unrelated images means a shared pool, not evidence.
+            """),
+        "iio.heic.frames": Row(
+            title: "HEIC multi-frame geometry confusion (frame 0 pins the surface, frame 1 overruns it)",
+            summary: """
+            A two-frame HEIC collection: frame 0 is 256×16, frame 1 is 256×48. A decoder that sizes its surface from frame 0 and then decodes frame 1 into it writes 32 rows past the end. The public PoC states the dependency in a comment — the order matters, frame 0 establishes the size used for later frames. Fixed in iOS/macOS 27.2, the same window as every other primitive here.
+            """,
+            notes: """
+            Order is the whole trick: frame 0 must land first so the geometry anchors at 16 rows. The public repository ships only a generator and an `og:image` page — delivery needs no interaction, because any link preview fetches and decodes the image — but it has no crash stack and no heap shape. This module is the missing part: decode both frames in our own process, where the journal, the artifact and the .ips are ours. A terminated process during frame 1 is the hit; otherwise compare each frame's declared size against what was actually decoded, which shows whether the build clamps it.
             """),
     ]
 }
