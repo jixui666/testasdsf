@@ -107,6 +107,24 @@ extension Catalog {
                         lines.append("frame \(index): " + tl("声明 ") + declared + tl(" → 拒绝解码"))
                     }
                 }
+                // Preview services do not decode the full frame — they thumbnail it onto a
+                // surface sized by their own max-pixel budget. If the geometry confusion lives
+                // in that path, only this pass reaches it. Full-frame decode on its own is an
+                // incomplete probe: it returned both frames at their declared sizes on 27.0.1
+                // without faulting.
+                let thumbOptions: [CFString: Any] = [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 1024,
+                    kCGImageSourceShouldCacheImmediately: true,
+                ]
+                for index in 0..<count {
+                    if let thumb = CGImageSourceCreateThumbnailAtIndex(source, index, thumbOptions as CFDictionary) {
+                        lines.append("thumb \(index): \(thumb.width)×\(thumb.height)")
+                    } else {
+                        lines.append("thumb \(index): " + tl("拒绝"))
+                    }
+                }
+
                 ctx.disarm("iio.heic.frames", "frames=\(count)")
 
                 let headline = count == 2 ? tl("两帧均完成解码") : tl("帧数异常")

@@ -226,6 +226,23 @@ them), and 27.0.1 carries none of the three containment helpers 27.2 adds. Wheth
 delivery path registers `format_all` or only `format_zip` therefore has to be settled
 behaviourally — hand Calendar an ISO image as an attachment — not from inside the app.
 
+### Two probes whose target sets were wrong
+
+`sbx.toctou` on 27.0.1 returned `bypassed=0 nosandbox=10 blocked=1`. That reads like a clean
+negative, and it is not one: the single `blocked` target was `/etc/master.passwd` failing with
+**errno 2** — the file does not exist on this build. Every other target was already readable by
+the app, so the run never presented the kernel with a path the sandbox actually denies and
+tested nothing about whether an extension stays bound to its issued path. The denied set now
+comes from `cm.fdleak.boundary` (`exists but denied`: TCC.db, keychain-2.db,
+CallHistory.storedata, healthdb_secure.sqlite), with the readable `/etc` entries kept as
+controls — a hit on a control would mean the probe is broken, not the sandbox.
+
+`iio.heic.frames` decoded both frames of the two-frame collection at their declared sizes
+(256×16, 256×48) without faulting. That is inconclusive rather than negative, for two reasons:
+the file was produced by **this device's** HEIC encoder rather than the macOS one the public PoC
+uses, and full-frame decode is not the path a link preview takes — preview services thumbnail
+onto a fixed surface. The module now also runs the thumbnail pass.
+
 ### `arc.rr` — the RockRidge claim has no implementation behind it
 
 `arc.rr/arc.rr.py` is a second copy of the Joliet builder, and the `arc.rr` module parses

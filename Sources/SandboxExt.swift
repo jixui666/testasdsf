@@ -195,21 +195,28 @@ enum SandboxExtension {
         return out
     }
 
-    /// Targets that historically open on a stock device. `/etc/*` is the reliable set —
-    /// those files are world-readable at the vnode level but denied to the app by the
-    /// sandbox profile, which is exactly the gap this primitive crosses.
+    /// Targets for the swap test.
+    ///
+    /// The first version of this list was wrong in the one way that mattered: every entry was
+    /// either already readable by the app or absent from the build, so the run could not
+    /// distinguish "the kernel binds an extension to the path it was issued for" from "there
+    /// was nothing here to cross". The 27.0.1 run said so plainly — the single `blocked`
+    /// target was `/etc/master.passwd`, and it failed with **errno 2**: the file does not
+    /// exist, which is not the sandbox refusing anything.
+    ///
+    /// The denied set below comes from `cm.fdleak.boundary`, which asks the daemon and so
+    /// separates existence from the app's own sandbox profile; those entries came back
+    /// "exists but denied". The two controls stay because they are readable without any
+    /// token — a `bypassed` verdict on a control would mean the probe is broken, not the
+    /// sandbox.
     static let knownTargets: [(String, String)] = [
-        ("/etc/passwd", tl("系统账户数据库")),
-        ("/etc/group", tl("系统组数据库")),
-        ("/etc/hosts", tl("hosts 表")),
-        ("/etc/protocols", tl("协议表")),
-        ("/etc/services", tl("服务表")),
-        ("/etc/master.passwd", tl("主密码文件（通常不可读）")),
-        ("/var/mobile/Library/Preferences/.GlobalPreferences.plist", tl("全局偏好")),
-        ("/var/mobile/Library/UserConfigurationProfiles/PublicInfo/PublicEffectiveUserSettings.plist", tl("生效用户设置")),
-        ("/var/preferences/com.apple.networkd.plist", tl("networkd 偏好")),
-        ("/private/etc/passwd", tl("系统账户数据库（/private 前缀）")),
-        ("/private/var/mobile/Library/Preferences/.GlobalPreferences.plist", tl("全局偏好（/private 前缀）")),
+        ("/private/var/mobile/Library/TCC/TCC.db", tl("TCC 数据库")),
+        ("/private/var/Keychains/keychain-2.db", tl("钥匙串数据库")),
+        ("/private/var/mobile/Library/CallHistoryDB/CallHistory.storedata", tl("通话记录")),
+        ("/private/var/mobile/Library/Health/healthdb_secure.sqlite", tl("健康数据库")),
+        ("/private/var/mobile/Library/Safari/History.db", tl("Safari 历史")),
+        ("/etc/passwd", tl("对照：本就可直接读")),
+        ("/private/var/mobile/Library/Preferences/.GlobalPreferences.plist", tl("对照：本就可直接读")),
     ]
 
     /// Plain read without the swap, for the control column: proves the sandbox really does
